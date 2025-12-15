@@ -1,9 +1,8 @@
 """
 FlickFinder AI - Advanced Film Analysis Platform
-Version: 3.1 Enhanced Scoring with Video Viewer
-Description: AI-powered film analysis with enhanced scoring algorithm,
-             YouTube integration, cultural context analysis, comprehensive
-             scoring algorithms, embedded video viewing, and enhanced analytics.
+Version: 4.0 Cinematic Intelligence Ecosystem
+Description: State-of-the-art film analysis with YouTube integration, cultural context analysis,
+             comprehensive scoring, radial graphing, ePortfolio system, and cinematic visualizations.
 """
 
 # --------------------------
@@ -23,6 +22,7 @@ from urllib.parse import urlparse, parse_qs
 import hashlib
 import plotly.graph_objects as go
 import plotly.express as px
+from plotly.subplots import make_subplots
 from collections import Counter
 import textwrap
 import time
@@ -30,64 +30,565 @@ import io
 import base64
 from typing import Dict, List, Optional, Tuple, Any, Union
 import json
+import math
+import warnings
+warnings.filterwarnings('ignore')
 
 # --------------------------
 # CONFIGURATION & SETUP
 # --------------------------
 st.set_page_config(
-    page_title="FlickFinder AI 🎬 - Advanced Film Analysis",
+    page_title="FlickFinder AI 🎬 - Cinematic Intelligence",
     page_icon="✨",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        'Get Help': 'https://github.com/yourusername/flickfinder',
-        'Report a bug': 'https://github.com/yourusername/flickfinder/issues',
-        'About': "### FlickFinder AI v3.1\nAdvanced film analysis with enhanced scoring algorithm."
+        'Get Help': 'https://github.com/flickfinder-ai',
+        'Report a bug': 'https://github.com/flickfinder-ai/issues',
+        'About': "### FlickFinder AI v4.0\nState-of-the-art film analysis using AI and machine learning with cinematic intelligence."
     }
 )
 
-# Initialize NLTK data
-@st.cache_resource
-def load_nltk_data() -> None:
-    """Load required NLTK data"""
-    try:
-        nltk.data.find('tokenizers/punkt')
-    except LookupError:
-        with st.spinner("Downloading NLP data..."):
-            nltk.download('punkt', quiet=True)
-            nltk.download('punkt_tab', quiet=True)
-
-load_nltk_data()
-
-# Initialize all session state variables
-session_defaults = {
-    'analysis_history': [],
-    'stored_results': {},
-    'current_analysis_id': None,
-    'show_results_page': False,
-    'saved_projects': {},
-    'project_counter': 0,
-    'current_page': "🏠 Dashboard",
-    'current_results_display': None,
-    'current_video_id': None,
-    'current_video_title': None,
-    'top_films': [],
-    'analysis_count': 0,
-    'last_analysis_time': None,
-    'batch_results': None,
-    'show_batch_results': False,
-    'analytics_view': 'overview',
-    'show_breakdown': False,
-    'current_tab': 'youtube',
-    'persistence_loaded': False,
-}
-
-for key, default in session_defaults.items():
-    if key not in st.session_state:
-        st.session_state[key] = default
+# Add custom CSS for enhanced UI
+st.markdown("""
+<style>
+    /* Cinematic gradient backgrounds */
+    .cinematic-gradient {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        border-radius: 10px;
+        padding: 20px;
+        margin: 10px 0;
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .holographic-card {
+        background: linear-gradient(135deg, rgba(20, 30, 48, 0.9) 0%, rgba(36, 59, 85, 0.9) 100%);
+        border: 1px solid rgba(0, 255, 255, 0.3);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 10px 0;
+        box-shadow: 0 8px 32px rgba(0, 255, 255, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .holographic-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        transition: 0.5s;
+    }
+    
+    .holographic-card:hover::before {
+        left: 100%;
+    }
+    
+    .tech-panel {
+        background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+        border: 1px solid rgba(0, 200, 255, 0.3);
+        border-radius: 10px;
+        padding: 15px;
+        margin: 10px 0;
+    }
+    
+    .radial-bg {
+        background: radial-gradient(circle at 30% 30%, rgba(102, 126, 234, 0.1) 0%, 
+                                   rgba(118, 75, 162, 0.05) 25%, transparent 70%);
+    }
+    
+    .cinematic-score {
+        font-family: 'Arial Black', sans-serif;
+        font-size: 2.5em;
+        background: linear-gradient(45deg, #FFD700, #FFA500, #FF8C00);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shimmer 2s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { background-position: -200px 0; }
+        100% { background-position: calc(200px + 100%) 0; }
+    }
+    
+    .grid-cell {
+        background: rgba(0, 30, 60, 0.7);
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 150, 255, 0.2);
+        transition: all 0.3s ease;
+    }
+    
+    .grid-cell:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 150, 255, 0.3);
+        border-color: rgba(0, 200, 255, 0.5);
+    }
+    
+    .film-card {
+        background: linear-gradient(135deg, rgba(30, 40, 60, 0.9) 0%, rgba(20, 30, 50, 0.9) 100%);
+        border-radius: 10px;
+        padding: 15px;
+        margin: 10px 0;
+        border: 1px solid rgba(0, 150, 255, 0.2);
+        transition: all 0.3s ease;
+    }
+    
+    .film-card:hover {
+        border-color: rgba(0, 200, 255, 0.5);
+        box-shadow: 0 5px 15px rgba(0, 200, 255, 0.2);
+    }
+    
+    .score-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 0.8em;
+        margin: 2px;
+    }
+    
+    .elite-badge { background: linear-gradient(45deg, #FFD700, #FFA500); color: #000; }
+    .excellent-badge { background: linear-gradient(45deg, #00FFAA, #00CC88); color: #000; }
+    .strong-badge { background: linear-gradient(45deg, #AAFF00, #88CC00); color: #000; }
+    .good-badge { background: linear-gradient(45deg, #FFFF00, #FFCC00); color: #000; }
+    .developing-badge { background: linear-gradient(45deg, #FFAA00, #FF8800); color: #000; }
+    
+    .stButton > button {
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 150, 255, 0.3);
+    }
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.1);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(45deg, #764ba2, #f093fb);
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # --------------------------
-# ENHANCED PERSISTENCE MANAGER CLASS
+# SESSION STATE INITIALIZATION
+# --------------------------
+class SessionManager:
+    """Manages session state initialization and persistence"""
+    
+    @staticmethod
+    def initialize():
+        """Initialize all session state variables"""
+        session_defaults = {
+            'analysis_history': [],
+            'stored_results': {},
+            'current_analysis_id': None,
+            'show_results_page': False,
+            'saved_projects': {},
+            'project_counter': 0,
+            'current_page': "🏠 Dashboard",
+            'current_results_display': None,
+            'current_video_id': None,
+            'current_video_title': None,
+            'top_films': [],
+            'analysis_count': 0,
+            'last_analysis_time': None,
+            'batch_results': None,
+            'show_batch_results': False,
+            'analytics_view': 'overview',
+            'show_breakdown': True,
+            'current_tab': 'youtube',
+            'persistence_loaded': False,
+            'eportfolio_view': 'cinematic',
+            'show_tech_view': False,
+            'selected_film_ids': [],
+            'comparison_mode': False,
+            'holographic_mode': True,
+            'initialized': True,
+        }
+        
+        for key, default in session_defaults.items():
+            if key not in st.session_state:
+                st.session_state[key] = default
+
+# --------------------------
+# UTILITY FUNCTIONS
+# --------------------------
+class TextProcessor:
+    """Handles text processing utilities"""
+    
+    @staticmethod
+    @st.cache_resource
+    def initialize_nltk():
+        """Initialize NLTK resources"""
+        try:
+            nltk.data.find('tokenizers/punkt')
+        except LookupError:
+            nltk.download('punkt', quiet=True)
+            nltk.download('punkt_tab', quiet=True)
+        return SentimentIntensityAnalyzer()
+    
+    @staticmethod
+    def extract_video_id(url: str) -> Optional[str]:
+        """Extract YouTube video ID from URL"""
+        patterns = [
+            r'(?:youtube\.com\/watch\?v=)([^&\n?#]+)',
+            r'(?:youtu\.be\/)([^&\n?#]+)',
+            r'(?:youtube\.com\/embed\/)([^&\n?#]+)',
+            r'(?:youtube\.com\/v\/)([^&\n?#]+)'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, url)
+            if match:
+                return match.group(1)
+        return None
+    
+    @staticmethod
+    def get_youtube_transcript(video_id: str) -> Optional[str]:
+        """Get transcript from YouTube video"""
+        try:
+            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+            transcript = " ".join([t['text'] for t in transcript_list])
+            return transcript
+        except Exception as e:
+            st.warning(f"Could not fetch transcript: {str(e)}")
+            return None
+
+# --------------------------
+# CINEMATIC VISUALIZATION ENGINE
+# --------------------------
+class CinematicVisualizationEngine:
+    """Advanced visualization engine with radial graphing and holographic displays"""
+    
+    @staticmethod
+    def create_cinematic_radar_chart(scores: Dict[str, float], title: str = "Cinematic Analysis") -> go.Figure:
+        """Create an advanced radar chart with cinematic styling"""
+        if not scores:
+            return None
+            
+        categories = list(scores.keys())
+        values = list(scores.values())
+        
+        # Close the loop
+        categories_display = [cat.replace('_', ' ').title() for cat in categories]
+        categories_display.append(categories_display[0])
+        values.append(values[0])
+        
+        fig = go.Figure()
+        
+        # Main radar trace
+        fig.add_trace(go.Scatterpolar(
+            r=values,
+            theta=categories_display,
+            fill='toself',
+            fillcolor='rgba(102, 126, 234, 0.3)',
+            line=dict(color='rgb(102, 126, 234)', width=3),
+            name='Score',
+            hoverinfo='text+value',
+            text=[f"{cat}: {val}/5.0" for cat, val in zip(categories_display[:-1], values[:-1])],
+            hovertemplate='%{text}<extra></extra>'
+        ))
+        
+        # Add reference lines
+        for i in range(1, 6):
+            fig.add_trace(go.Scatterpolar(
+                r=[i] * (len(categories) + 1),
+                theta=categories_display,
+                mode='lines',
+                line=dict(color='rgba(255, 255, 255, 0.1)', width=1, dash='dash'),
+                showlegend=False,
+                hoverinfo='skip'
+            ))
+        
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 5],
+                    tickvals=[1, 2, 3, 4, 5],
+                    ticktext=['1', '2', '3', '4', '5'],
+                    tickfont=dict(size=12, color='#FFFFFF'),
+                    gridcolor='rgba(255, 255, 255, 0.2)',
+                    linecolor='rgba(255, 255, 255, 0.3)'
+                ),
+                angularaxis=dict(
+                    gridcolor='rgba(255, 255, 255, 0.2)',
+                    linecolor='rgba(255, 255, 255, 0.3)',
+                    rotation=90,
+                    direction='clockwise'
+                ),
+                bgcolor='rgba(10, 15, 30, 0.7)'
+            ),
+            title=dict(
+                text=f'<b>{title}</b>',
+                font=dict(size=20, color='#FFFFFF', family="Arial Black"),
+                x=0.5,
+                xanchor='center'
+            ),
+            showlegend=False,
+            height=400,
+            margin=dict(l=50, r=50, t=60, b=50),
+            paper_bgcolor='rgba(0, 0, 0, 0)',
+            plot_bgcolor='rgba(0, 0, 0, 0)',
+            font=dict(color='#FFFFFF')
+        )
+        
+        return fig
+    
+    @staticmethod
+    def create_philosophical_radial_chart(insights: Dict[str, float]) -> Optional[go.Figure]:
+        """Create a radial chart for philosophical insights"""
+        if not insights:
+            return None
+            
+        themes = list(insights.keys())
+        scores = list(insights.values())
+        
+        fig = go.Figure()
+        
+        # Create radial bars
+        fig.add_trace(go.Barpolar(
+            r=scores,
+            theta=themes,
+            width=[0.8] * len(themes),
+            marker=dict(
+                color=scores,
+                colorscale='Viridis',
+                line=dict(color='#FFFFFF', width=1)
+            ),
+            hoverinfo='text',
+            text=[f"{theme}: {score:.1f}" for theme, score in zip(themes, scores)],
+            hovertemplate='<b>%{theta}</b><br>Depth: %{r:.1f}<extra></extra>'
+        ))
+        
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, max(scores) * 1.2 if scores else 1],
+                    showticklabels=True,
+                    tickfont=dict(size=10, color='#FFFFFF')
+                ),
+                angularaxis=dict(
+                    direction='clockwise',
+                    rotation=90,
+                    tickfont=dict(size=11, color='#FFFFFF')
+                ),
+                bgcolor='rgba(15, 25, 40, 0.8)'
+            ),
+            title=dict(
+                text='<b>Philosophical Depth Analysis</b>',
+                font=dict(size=16, color='#FFFFFF', family="Arial"),
+                x=0.5
+            ),
+            height=350,
+            margin=dict(l=50, r=50, t=60, b=50),
+            paper_bgcolor='rgba(0, 0, 0, 0)',
+            plot_bgcolor='rgba(0, 0, 0, 0)'
+        )
+        
+        return fig
+    
+    @staticmethod
+    def create_tech_breakdown_chart(weights: Dict[str, float], scores: Dict[str, float]) -> Optional[go.Figure]:
+        """Create technology breakdown visualization"""
+        if not weights or not scores:
+            return None
+            
+        components = list(weights.keys())
+        weight_values = [w * 100 for w in weights.values()]  # Convert to percentages
+        score_values = [scores.get(c, 0) for c in components]
+        
+        fig = make_subplots(
+            rows=1, cols=2,
+            specs=[[{'type': 'pie'}, {'type': 'bar'}]],
+            subplot_titles=('<b>Algorithm Weight Distribution</b>', '<b>Component Performance</b>'),
+            horizontal_spacing=0.15
+        )
+        
+        # Pie chart for weights
+        fig.add_trace(
+            go.Pie(
+                labels=[c.replace('_', ' ').title() for c in components],
+                values=weight_values,
+                hole=0.4,
+                marker=dict(colors=px.colors.sequential.Viridis),
+                textinfo='label+percent',
+                textposition='outside',
+                hoverinfo='label+value+percent',
+                name="Weights"
+            ),
+            row=1, col=1
+        )
+        
+        # Bar chart for scores
+        fig.add_trace(
+            go.Bar(
+                x=[c.replace('_', ' ').title() for c in components],
+                y=score_values,
+                marker=dict(
+                    color=score_values,
+                    colorscale='Viridis',
+                    line=dict(color='#FFFFFF', width=1)
+                ),
+                text=[f"{s:.1f}" for s in score_values],
+                textposition='auto',
+                hoverinfo='x+y'
+            ),
+            row=1, col=2
+        )
+        
+        fig.update_layout(
+            height=400,
+            showlegend=False,
+            paper_bgcolor='rgba(0, 0, 0, 0)',
+            plot_bgcolor='rgba(0, 0, 0, 0)',
+            font=dict(color='#FFFFFF'),
+            title=dict(
+                text='<b>AI Scoring Engine Breakdown</b>',
+                font=dict(size=20, color='#FFFFFF', family="Arial Black"),
+                x=0.5
+            )
+        )
+        
+        fig.update_xaxes(title_text="Components", row=1, col=2)
+        fig.update_yaxes(title_text="Score /5.0", row=1, col=2, range=[0, 5.5])
+        
+        return fig
+    
+    @staticmethod
+    def create_comparison_radar(films_data: List[Dict]) -> Optional[go.Figure]:
+        """Create comparison radar chart for multiple films"""
+        if len(films_data) < 2:
+            return None
+            
+        fig = go.Figure()
+        
+        colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFD93D', '#FF8E53']
+        
+        for idx, film in enumerate(films_data[:6]):  # Limit to 6 films for clarity
+            scores = film.get('cinematic_scores', {})
+            if not scores:
+                continue
+                
+            categories = list(scores.keys())
+            values = list(scores.values())
+            categories_display = [cat.replace('_', ' ').title() for cat in categories]
+            categories_display.append(categories_display[0])
+            values.append(values[0])
+            
+            fig.add_trace(go.Scatterpolar(
+                r=values,
+                theta=categories_display,
+                fill='toself' if len(films_data) <= 3 else 'none',
+                fillcolor=f'rgba{tuple(int(colors[idx].lstrip("#")[i:i+2], 16) for i in (0, 2, 4)) + (0.2,)}',
+                line=dict(color=colors[idx], width=2),
+                name=film.get('title', f'Film {idx+1}')[:20],
+                opacity=0.8 if len(films_data) <= 3 else 1.0
+            ))
+        
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 5],
+                    tickvals=[1, 2, 3, 4, 5],
+                    ticktext=['1', '2', '3', '4', '5'],
+                    tickfont=dict(size=10, color='#FFFFFF')
+                ),
+                angularaxis=dict(
+                    gridcolor='rgba(255, 255, 255, 0.2)',
+                    linecolor='rgba(255, 255, 255, 0.3)'
+                ),
+                bgcolor='rgba(10, 15, 30, 0.7)'
+            ),
+            title=dict(
+                text='<b>Multi-Film Comparison Analysis</b>',
+                font=dict(size=18, color='#FFFFFF'),
+                x=0.5
+            ),
+            height=500,
+            margin=dict(l=50, r=50, t=60, b=50),
+            paper_bgcolor='rgba(0, 0, 0, 0)',
+            plot_bgcolor='rgba(0, 0, 0, 0)',
+            font=dict(color='#FFFFFF'),
+            legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=1.05,
+                bgcolor='rgba(0, 0, 0, 0.5)',
+                bordercolor='rgba(255, 255, 255, 0.2)'
+            )
+        )
+        
+        return fig
+    
+    @staticmethod
+    def create_score_gauge(score: float, title: str = "Cinematic Score") -> go.Figure:
+        """Create a gauge chart for scores"""
+        # Determine color based on score
+        if score >= 4.5:
+            color = "#00FFFF"
+        elif score >= 4.0:
+            color = "#00FFAA"
+        elif score >= 3.5:
+            color = "#AAFF00"
+        elif score >= 3.0:
+            color = "#FFFF00"
+        else:
+            color = "#FFAA00"
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Indicator(
+            mode="gauge+number",
+            value=score,
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': title, 'font': {'size': 20, 'color': 'white'}},
+            number={'font': {'size': 40, 'color': color, 'family': "Arial Black"}},
+            gauge={
+                'axis': {'range': [None, 5], 'tickwidth': 1, 'tickcolor': 'white'},
+                'bar': {'color': color},
+                'bgcolor': 'rgba(0, 0, 0, 0)',
+                'borderwidth': 2,
+                'bordercolor': color,
+                'steps': [
+                    {'range': [0, 2.5], 'color': 'rgba(255, 0, 0, 0.1)'},
+                    {'range': [2.5, 4], 'color': 'rgba(255, 255, 0, 0.1)'},
+                    {'range': [4, 5], 'color': 'rgba(0, 255, 0, 0.1)'}
+                ]
+            }
+        ))
+        
+        fig.update_layout(
+            height=300,
+            paper_bgcolor='rgba(0, 0, 0, 0)',
+            font={'color': 'white'}
+        )
+        
+        return fig
+
+# --------------------------
+# PERSISTENCE MANAGER
 # --------------------------
 class PersistenceManager:
     """Handles saving and loading of analysis results with unique IDs"""
@@ -137,7 +638,7 @@ class PersistenceManager:
         st.session_state.show_results_page = True
         st.session_state.current_analysis_id = film_id
         st.session_state.last_analysis_time = datetime.now().isoformat()
-        st.session_state.analysis_count += 1
+        st.session_state.analysis_count = len(st.session_state.analysis_history)
         
         return film_id
     
@@ -176,38 +677,12 @@ class PersistenceManager:
         st.session_state.current_video_title = None
         st.session_state.batch_results = None
         st.session_state.show_batch_results = False
+        st.session_state.selected_film_ids = []
     
     @staticmethod
-    def save_project(project_name: str, film_data: Dict, analysis_results: Dict) -> str:
-        """Save a project with custom name"""
-        project_id = f"project_{st.session_state.project_counter}"
-        st.session_state.project_counter += 1
-        
-        st.session_state.saved_projects[project_id] = {
-            'name': project_name,
-            'film_data': film_data,
-            'analysis_results': analysis_results,
-            'saved_at': datetime.now().isoformat()
-        }
-        
-        return project_id
-    
-    @staticmethod
-    def load_project(project_id: str) -> Optional[Dict]:
-        """Load a saved project"""
-        return st.session_state.saved_projects.get(project_id)
-    
-    @staticmethod
-    def get_all_projects() -> Dict:
-        """Get all saved projects"""
-        return st.session_state.saved_projects
-    
-    @staticmethod
-    def get_top_films() -> List[Dict]:
-        """Get top films"""
-        if not st.session_state.top_films:
-            PersistenceManager._update_top_films()
-        return st.session_state.top_films
+    def get_all_films() -> List[Dict]:
+        """Get all films"""
+        return list(st.session_state.stored_results.values())
     
     @staticmethod
     def get_analytics_data() -> Optional[pd.DataFrame]:
@@ -217,457 +692,15 @@ class PersistenceManager:
             return None
         
         df = pd.DataFrame(history)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df['date'] = df['timestamp'].dt.date
-        df['time_of_day'] = df['timestamp'].dt.hour
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            df['date'] = df['timestamp'].dt.date
+            df['time_of_day'] = df['timestamp'].dt.hour
         
         return df
 
 # --------------------------
-# ENHANCED FILM-SPECIFIC SCORER CLASS WITH WIDER SCORE RANGE
-# --------------------------
-class EnhancedFilmScorer:
-    """Enhanced film scorer with wider, more nuanced score distribution (1.1-5.0)"""
-    
-    def __init__(self):
-        self.base_weights = {
-            'narrative': 0.25,
-            'emotional': 0.22,
-            'character': 0.20,
-            'cultural': 0.18,
-            'technical': 0.15
-        }
-        
-        # Score range parameters for wider distribution
-        self.MIN_SCORE = 1.1
-        self.MAX_SCORE = 5.0
-        self.SCORE_INTERVAL = 0.1  # Allows scores like 3.7, 4.2, 1.5, etc.
-        
-        self.philosophical_insights = [
-            "Art as cultural memory",
-            "Narrative as truth-seeking",
-            "Cinema as empathy machine",
-            "Storytelling as resistance",
-            "Film as time capsule",
-            "Visual language as consciousness",
-            "Character as human mirror",
-            "Genre as cultural dialogue"
-        ]
-    
-    def calculate_unique_film_score(self, analysis_results: Dict, film_data: Dict) -> Dict:
-        """Calculate comprehensive film score with enhanced granularity and variation"""
-        text = (film_data.get('synopsis', '') + ' ' + film_data.get('transcript', '')).lower()
-        title = film_data.get('title', '').lower()
-        
-        # Get component scores with enhanced precision
-        component_scores = {
-            'narrative': self._enhanced_narrative_score(analysis_results, text),
-            'emotional': self._enhanced_emotional_score(analysis_results),
-            'character': self._enhanced_character_score(analysis_results, text),
-            'cultural': self._enhanced_cultural_score(analysis_results),
-            'technical': self._enhanced_technical_score(analysis_results, text)
-        }
-        
-        # Apply genre-specific adjustments
-        adjusted_weights = self._apply_genre_adjustments(analysis_results)
-        
-        # Calculate weighted score with more variation
-        raw_score = sum(
-            component_scores[comp] * adjusted_weights[comp] 
-            for comp in component_scores
-        )
-        
-        # Add variation factors
-        raw_score = self._add_variation_factors(raw_score, analysis_results, film_data, text)
-        
-        # Apply cultural/philosophical bonuses
-        raw_score = self._apply_bonuses(raw_score, analysis_results, film_data, text)
-        
-        # Convert to 5.0 scale
-        final_score = raw_score * 5.0
-        
-        # Apply distribution curve for natural spread
-        final_score = self._apply_distribution_curve(final_score, analysis_results)
-        
-        # Ensure score is within desired range with proper granularity
-        final_score = max(self.MIN_SCORE, min(self.MAX_SCORE, final_score))
-        
-        # Round to nearest 0.1 increment
-        final_score = round(final_score / self.SCORE_INTERVAL) * self.SCORE_INTERVAL
-        
-        # Ensure minimum score for very short content
-        if len(text.split()) < 100:
-            final_score = max(1.5, final_score)
-        
-        return {
-            'overall_score': final_score,
-            'component_scores': {
-                'narrative': round(component_scores['narrative'] * 5, 1),
-                'emotional': round(component_scores['emotional'] * 5, 1),
-                'character': round(component_scores['character'] * 5, 1),
-                'cultural': round(component_scores['cultural'] * 5, 1),
-                'technical': round(component_scores['technical'] * 5, 1)
-            },
-            'weighted_scores': component_scores,
-            'applied_weights': adjusted_weights,
-            'cultural_bonus': self._calculate_cultural_bonus(analysis_results, text),
-            'philosophical_insight': random.choice(self.philosophical_insights) 
-                if component_scores['cultural'] > 0.4 else None,
-            'raw_components': self._get_raw_component_details(analysis_results, film_data)
-        }
-    
-    def _enhanced_narrative_score(self, analysis_results: Dict, text: str) -> float:
-        """Enhanced narrative scoring with more granularity"""
-        ns = analysis_results.get('narrative_structure', {})
-        
-        # Multiple factors for variation
-        lexical_diversity = ns.get('lexical_diversity', 0.4)
-        structural_score = ns.get('structural_score', 0.4)
-        readability = ns.get('readability_score', 0.6)
-        sentence_variety = self._calculate_sentence_variety(text)
-        complexity = self._assess_narrative_complexity(text)
-        
-        # Weighted average with variation
-        base_score = (
-            lexical_diversity * 0.25 +
-            structural_score * 0.25 +
-            sentence_variety * 0.20 +
-            readability * 0.15 +
-            complexity * 0.15
-        )
-        
-        # Add text length consideration
-        word_count = len(text.split())
-        if word_count < 200:
-            base_score *= 0.9
-        elif word_count > 800:
-            base_score *= 1.05
-        
-        return min(1.0, max(0.2, base_score))
-    
-    def _enhanced_emotional_score(self, analysis_results: Dict) -> float:
-        """Enhanced emotional scoring"""
-        ea = analysis_results.get('emotional_arc', {})
-        
-        arc_score = ea.get('arc_score', 0.4)
-        variance = ea.get('emotional_variance', 0.2)
-        emotional_range = self._map_emotional_range(ea.get('emotional_range', 'moderate'))
-        intensity = self._assess_emotional_intensity(analysis_results)
-        
-        base_score = (
-            arc_score * 0.35 +
-            variance * 0.30 +
-            emotional_range * 0.20 +
-            intensity * 0.15
-        )
-        
-        return min(1.0, max(0.2, base_score))
-    
-    def _enhanced_character_score(self, analysis_results: Dict, text: str) -> float:
-        """Enhanced character scoring"""
-        ca = analysis_results.get('character_analysis', {})
-        
-        chars = ca.get('potential_characters', 3)
-        density = ca.get('character_density', 0.03)
-        character_score = ca.get('character_score', 0.5)
-        
-        # Count character mentions
-        mentions = text.count(" he ") + text.count(" she ") + text.count(" his ") + text.count(" her ")
-        mentions += text.count(" they ") + text.count(" their ") + text.count(" them ")
-        
-        base_score = (
-            (chars / 8) * 0.4 +
-            density * 8 * 0.3 +
-            min(mentions / 50, 0.4) * 0.2 +
-            character_score * 0.1
-        )
-        
-        return min(1.0, max(0.2, base_score))
-    
-    def _enhanced_cultural_score(self, analysis_results: Dict) -> float:
-        """Enhanced cultural scoring"""
-        cultural_context = analysis_results.get('cultural_context', {})
-        relevance_score = cultural_context.get('relevance_score', 0.0)
-        
-        # Add philosophical depth bonus
-        philosophical_depth = cultural_context.get('philosophical_depth', 0)
-        cultural_bonus = philosophical_depth * 0.1
-        
-        total_score = min(1.0, relevance_score + cultural_bonus)
-        return max(0.1, total_score)  # Ensure minimum cultural score
-    
-    def _enhanced_technical_score(self, analysis_results: Dict, text: str) -> float:
-        """Enhanced technical scoring"""
-        ns = analysis_results.get('narrative_structure', {})
-        
-        readability = ns.get('readability_score', 0.6)
-        
-        # Calculate dialogue density
-        dialogue_patterns = [r'\b[A-Z][a-z]+:', r'"', r"'", r'\[.*?\]']
-        dialogue_density = 0
-        for pattern in dialogue_patterns:
-            matches = len(re.findall(pattern, text))
-            dialogue_density += matches * 0.1
-        
-        # Structure complexity
-        sentences = nltk.sent_tokenize(text)
-        structure_variety = min(0.3, len(set([len(s.split()) for s in sentences])) / 10)
-        
-        base_score = (
-            readability * 0.5 +
-            min(dialogue_density, 0.3) * 0.3 +
-            structure_variety * 0.2
-        )
-        
-        return min(1.0, max(0.2, base_score))
-    
-    def _apply_genre_adjustments(self, analysis_results: Dict) -> Dict:
-        """Apply genre-specific weight adjustments"""
-        weights = self.base_weights.copy()
-        genre_context = analysis_results.get('genre_context', {})
-        primary_genre = genre_context.get('primary_genre', '').lower()
-        
-        # Genre-specific adjustments for more score variation
-        genre_adjustments = {
-            'drama': {'emotional': 0.05, 'character': 0.04, 'cultural': 0.03},
-            'comedy': {'emotional': 0.04, 'character': 0.06, 'technical': -0.02},
-            'action': {'technical': 0.06, 'narrative': 0.03, 'emotional': -0.03},
-            'horror': {'emotional': 0.05, 'technical': 0.04, 'character': -0.02},
-            'documentary': {'cultural': 0.08, 'narrative': 0.04, 'technical': -0.02},
-            'black cinema': {'cultural': 0.10, 'emotional': 0.06, 'character': 0.05},
-            'urban drama': {'cultural': 0.08, 'character': 0.06, 'emotional': 0.04},
-            'sci-fi': {'technical': 0.07, 'narrative': 0.04, 'cultural': -0.02},
-            'fantasy': {'narrative': 0.06, 'technical': 0.03, 'emotional': 0.02},
-            'romance': {'emotional': 0.07, 'character': 0.05, 'technical': -0.03},
-            'thriller': {'narrative': 0.06, 'emotional': 0.04, 'technical': 0.02}
-        }
-        
-        # Apply adjustments based on detected genre
-        for genre, adjustments in genre_adjustments.items():
-            if genre in primary_genre:
-                for factor, adjustment in adjustments.items():
-                    if factor in weights:
-                        weights[factor] += adjustment
-        
-        # Normalize weights to sum to 1.0
-        total = sum(weights.values())
-        if total > 0:
-            weights = {k: v/total for k, v in weights.items()}
-        
-        return weights
-    
-    def _add_variation_factors(self, raw_score: float, analysis_results: Dict, 
-                             film_data: Dict, text: str) -> float:
-        """Add variation factors for score diversity"""
-        word_count = len(text.split())
-        
-        # Length-based variation
-        if word_count < 150:
-            raw_score *= 0.92  # Short content penalty
-        elif word_count > 1200:
-            raw_score *= 1.03  # Detailed content bonus
-        
-        # Sentiment polarity variation
-        sentiment = analysis_results.get('sentiment_analysis', {})
-        polarity = sentiment.get('compound', 0)
-        if abs(polarity) > 0.5:
-            raw_score *= 1.02  # Strong sentiment bonus
-        
-        # Character density variation
-        char_analysis = analysis_results.get('character_analysis', {})
-        char_density = char_analysis.get('character_density', 0)
-        if char_density > 0.05:
-            raw_score *= 1.02
-        
-        # Add small random variation for natural distribution (0.1-0.3 point variation)
-        random_variation = random.uniform(-0.02, 0.03)
-        raw_score += random_variation
-        
-        return min(1.0, max(0.1, raw_score))
-    
-    def _apply_distribution_curve(self, score: float, analysis_results: Dict) -> float:
-        """Apply distribution curve for natural score spread"""
-        # Sigmoid-like curve for more middle-range variation
-        base_score = score / 5.0
-        
-        # Apply curve transformation
-        if base_score < 0.3:  # Very low scores
-            transformed = base_score * 0.95
-        elif base_score < 0.5:  # Low scores
-            transformed = base_score * 1.02
-        elif base_score < 0.8:  # Middle scores get more variation
-            transformed = base_score * (1 + (base_score - 0.5) * 0.15)
-        else:  # High scores
-            transformed = base_score * 0.98
-        
-        # Add genre-specific curve adjustments
-        genre_context = analysis_results.get('genre_context', {})
-        primary_genre = genre_context.get('primary_genre', '').lower()
-        
-        if 'drama' in primary_genre or 'black cinema' in primary_genre:
-            transformed = transformed * 1.02  # Drama/Black cinema tends to score higher
-        elif 'comedy' in primary_genre:
-            transformed = transformed * 0.98  # Comedy often scores slightly lower
-        elif 'documentary' in primary_genre:
-            transformed = transformed * 1.01  # Documentary gets slight boost
-        
-        return transformed * 5.0
-    
-    def _apply_bonuses(self, raw_score: float, analysis_results: Dict, 
-                      film_data: Dict, text: str) -> float:
-        """Apply cultural and philosophical bonuses"""
-        cultural = analysis_results.get('cultural_context', {})
-        
-        # Cultural relevance bonus
-        cultural_score = cultural.get('relevance_score', 0)
-        if cultural_score > 0.6:
-            raw_score += (cultural_score - 0.6) * 0.12
-        
-        # Philosophical depth bonus
-        philosophical_bonus = self._calculate_philosophical_depth(text, cultural_score)
-        raw_score += philosophical_bonus
-        
-        # Originality bonus
-        originality_bonus = self._assess_originality(film_data)
-        raw_score += originality_bonus
-        
-        return min(1.0, max(0.1, raw_score))  # Cap at 1.0, minimum 0.1
-    
-    def _calculate_cultural_bonus(self, analysis_results: Dict, text: str) -> float:
-        """Calculate cultural bonus separately for transparency"""
-        cultural = analysis_results.get('cultural_context', {})
-        cultural_score = cultural.get('relevance_score', 0)
-        
-        if cultural_score > 0.6:
-            return (cultural_score - 0.6) * 0.12
-        return 0.0
-    
-    def _calculate_philosophical_depth(self, text: str, cultural_score: float) -> float:
-        """Calculate philosophical depth bonus"""
-        philosophical_keywords = {
-            'existential': ['meaning', 'purpose', 'existence', 'death', 'life', 'being'],
-            'social': ['justice', 'equality', 'power', 'society', 'system', 'class'],
-            'psychological': ['identity', 'memory', 'consciousness', 'mind', 'self', 'psyche'],
-            'ethical': ['moral', 'right', 'wrong', 'choice', 'dilemma', 'ethics'],
-            'temporal': ['time', 'memory', 'history', 'future', 'past', 'present']
-        }
-        
-        matches = 0
-        for category, keywords in philosophical_keywords.items():
-            for keyword in keywords:
-                if re.search(r'\b' + keyword + r'\b', text):
-                    matches += 1
-                    break  # Count once per category
-        
-        base_bonus = matches * 0.008
-        
-        if cultural_score > 0.5:
-            base_bonus *= 1.5
-        
-        return min(0.05, base_bonus)
-    
-    def _assess_originality(self, film_data: Dict) -> float:
-        """Assess originality for bonus"""
-        # Simple uniqueness check based on content hash
-        content = film_data.get('title', '') + film_data.get('synopsis', '')[:100]
-        content_hash = hash(content) % 100
-        
-        # Originality score based on hash (simulating uniqueness)
-        if content_hash < 10:  # 10% chance of high originality
-            return 0.02
-        elif content_hash < 30:  # 20% chance of medium originality
-            return 0.01
-        else:
-            return 0.0
-    
-    # Helper methods for enhanced scoring
-    def _calculate_sentence_variety(self, text: str) -> float:
-        """Calculate sentence structure variety"""
-        sentences = nltk.sent_tokenize(text)
-        if len(sentences) < 3:
-            return 0.4
-        
-        lengths = [len(s.split()) for s in sentences]
-        if not lengths:
-            return 0.5
-        
-        avg_length = np.mean(lengths)
-        std_length = np.std(lengths) if len(lengths) > 1 else 0
-        
-        # Variety score based on length variation
-        if std_length > avg_length * 0.5:
-            return 0.8
-        elif std_length > avg_length * 0.3:
-            return 0.7
-        elif std_length > avg_length * 0.1:
-            return 0.6
-        else:
-            return 0.5
-    
-    def _map_emotional_range(self, range_str: str) -> float:
-        """Map emotional range description to score"""
-        mapping = {
-            'wide': 0.9,
-            'moderate': 0.7,
-            'narrow': 0.5,
-            'limited': 0.4,
-            'intense': 0.85,
-            'subtle': 0.6
-        }
-        return mapping.get(range_str.lower(), 0.6)
-    
-    def _assess_emotional_intensity(self, analysis_results: Dict) -> float:
-        """Assess emotional intensity"""
-        sentiment = analysis_results.get('sentiment_analysis', {})
-        compound = abs(sentiment.get('compound', 0))
-        
-        if compound > 0.7:
-            return 0.9
-        elif compound > 0.4:
-            return 0.7
-        elif compound > 0.2:
-            return 0.6
-        else:
-            return 0.5
-    
-    def _assess_narrative_complexity(self, text: str) -> float:
-        """Assess narrative complexity"""
-        words = text.split()
-        if len(words) < 50:
-            return 0.3
-        
-        unique_words = set(words)
-        lexical_diversity = len(unique_words) / max(len(words), 1)
-        
-        # Check for complex structures
-        complex_patterns = [
-            r'although.*', r'however.*', r'nevertheless.*',
-            r'on the other hand', r'in contrast', r'meanwhile',
-            r'consequently', r'furthermore', r'nonetheless'
-        ]
-        
-        pattern_matches = sum(1 for pattern in complex_patterns 
-                            if re.search(pattern, text, re.IGNORECASE))
-        
-        complexity = (lexical_diversity * 0.6) + (min(pattern_matches, 5) * 0.08)
-        
-        return min(0.9, max(0.2, complexity))
-    
-    def _get_raw_component_details(self, analysis_results: Dict, film_data: Dict) -> Dict:
-        """Get raw component details for debugging/transparency"""
-        text = film_data.get('synopsis', '') + ' ' + film_data.get('transcript', '')
-        return {
-            'narrative_score': self._enhanced_narrative_score(analysis_results, text),
-            'emotional_score': self._enhanced_emotional_score(analysis_results),
-            'character_score': self._enhanced_character_score(analysis_results, text),
-            'cultural_score': self._enhanced_cultural_score(analysis_results),
-            'technical_score': self._enhanced_technical_score(analysis_results, text),
-            'word_count': len(text.split()),
-            'genre_adjustments': self._apply_genre_adjustments(analysis_results)
-        }
-
-# --------------------------
-# ENHANCED SMART GENRE DETECTOR WITH AI SUGGESTIONS
+# GENRE DETECTOR
 # --------------------------
 class SmartGenreDetector:
     """Detects film genres with AI enhancement suggestions"""
@@ -744,12 +777,6 @@ class SmartGenreDetector:
                            "inner city", "metropolitan", "concrete", "asphalt", "urban life"],
                 "weight": 1.2,
                 "philosophical_aspect": "Modern alienation and community"
-            },
-            "Short Film": {
-                "keywords": ["short film", "short", "experimental", "student film", "micro",
-                           "brief", "compact", "concise", "miniature"],
-                "weight": 1.1,
-                "philosophical_aspect": "Condensed narrative expression"
             }
         }
     
@@ -765,16 +792,6 @@ class SmartGenreDetector:
             }
         
         text_lower = text.lower()
-        word_count = len(text_lower.split())
-        
-        # Short film detection based on length
-        if word_count < 300:
-            short_film_score = 3.0
-        elif word_count < 500:
-            short_film_score = 2.0
-        else:
-            short_film_score = 0.5
-        
         genre_scores = {}
         genre_details = {}
         
@@ -782,10 +799,6 @@ class SmartGenreDetector:
             score = 0
             keywords = pattern_data["keywords"]
             weight = pattern_data.get("weight", 1.0)
-            
-            # Special handling for Short Film
-            if genre == "Short Film":
-                score = short_film_score * weight
             
             keyword_matches = []
             for keyword in keywords:
@@ -819,24 +832,16 @@ class SmartGenreDetector:
         top_genre, top_score = max(genre_scores.items(), key=lambda x: x[1])
         secondary_genres = [g for g, s in genre_scores.items() if s >= top_score * 0.5 and g != top_genre]
         
-        # Adjust confidence based on score difference
-        if len(genre_scores) > 1:
-            sorted_scores = sorted(genre_scores.values(), reverse=True)
-            score_diff = sorted_scores[0] - sorted_scores[1] if len(sorted_scores) > 1 else 0
-            confidence = min(95, 60 + (score_diff * 5))
-        else:
-            confidence = 80
-        
         return {
             'primary_genre': top_genre,
-            'confidence': min(100, confidence),
+            'confidence': min(100, top_score * 10),
             'details': genre_details.get(top_genre, {}),
             'secondary_genres': secondary_genres[:2],
             'all_genres': genre_details
         }
 
 # --------------------------
-# ENHANCED CULTURAL CONTEXT ANALYZER
+# CULTURAL CONTEXT ANALYZER
 # --------------------------
 class CulturalContextAnalyzer:
     """Analyzes cultural context and relevance in films"""
@@ -913,8 +918,7 @@ class CulturalContextAnalyzer:
                 'theme_details': {},
                 'is_culturally_relevant': False,
                 'philosophical_insights': [],
-                'total_matches': 0,
-                'philosophical_depth': 0
+                'total_matches': 0
             }
         
         max_possible = sum(len(theme_data['keywords']) * theme_data.get('weight', 1.0) 
@@ -925,11 +929,9 @@ class CulturalContextAnalyzer:
         primary_themes = [theme for theme, score in primary_themes if score > 0]
         
         philosophical_insights = []
-        philosophical_depth = 0
         for theme in primary_themes:
             if theme in theme_details:
                 philosophical_insights.append(theme_details[theme]['philosophical_aspect'])
-                philosophical_depth += 0.3
         
         return {
             'relevance_score': round(relevance_score, 2),
@@ -938,12 +940,178 @@ class CulturalContextAnalyzer:
             'theme_details': theme_details,
             'is_culturally_relevant': relevance_score > 0.3,
             'philosophical_insights': philosophical_insights[:2],
-            'total_matches': total_weighted_matches,
-            'philosophical_depth': min(1.0, philosophical_depth)
+            'total_matches': total_weighted_matches
         }
 
 # --------------------------
-# ENHANCED FILM ANALYSIS ENGINE
+# FILM SCORER
+# --------------------------
+class FilmSpecificScorer:
+    """Handles film scoring with genre-specific adjustments"""
+    
+    def __init__(self):
+        self.base_weights = {
+            'narrative': 0.28,
+            'emotional': 0.25,
+            'character': 0.22,
+            'cultural': 0.15,
+            'technical': 0.10
+        }
+        self.philosophical_insights = [
+            "Art as cultural memory",
+            "Narrative as truth-seeking",
+            "Cinema as empathy machine",
+            "Storytelling as resistance",
+            "Film as time capsule",
+            "Visual language as consciousness",
+            "Character as human mirror",
+            "Genre as cultural dialogue"
+        ]
+    
+    def calculate_unique_film_score(self, analysis_results: Dict, film_data: Dict) -> Dict:
+        """Calculate comprehensive film score with genre-specific adjustments"""
+        text = (film_data.get('synopsis', '') + ' ' + film_data.get('transcript', '')).lower()
+        title = film_data.get('title', '').lower()
+        
+        # Get detected genre
+        genre_context = analysis_results.get('genre_context', {})
+        detected_genre = genre_context.get('primary_genre', '')
+        if isinstance(detected_genre, dict):
+            detected_genre = detected_genre.get('primary_genre', '')
+        detected_genre = detected_genre.lower()
+        
+        # Component scores
+        narrative_score = self._score_narrative(analysis_results.get('narrative_structure', {}), text)
+        emotional_score = self._score_emotional(analysis_results.get('emotional_arc', {}))
+        character_score = self._score_characters(analysis_results.get('character_analysis', {}), text)
+        cultural_score = analysis_results.get('cultural_context', {}).get('relevance_score', 0.0)
+        technical_score = self._score_technical(analysis_results.get('narrative_structure', {}), text)
+        
+        # Genre-specific weight adjustments
+        weights = self.base_weights.copy()
+        
+        if any(g in detected_genre for g in ['drama', 'urban drama', 'black cinema', 'black', 'urban']):
+            weights['emotional'] += 0.08
+            weights['character'] += 0.06
+            weights['cultural'] += 0.10
+            weights['narrative'] -= 0.05
+        
+        if 'comedy' in detected_genre:
+            weights['emotional'] += 0.05
+            weights['character'] += 0.08
+            weights['technical'] -= 0.03
+        
+        if 'action' in detected_genre or 'thriller' in detected_genre:
+            weights['emotional'] -= 0.03
+            weights['technical'] += 0.08
+            weights['narrative'] += 0.05
+        
+        if 'short film' in title or len(text.split()) < 800:
+            narrative_score = max(narrative_score, 0.68)
+            emotional_score = max(emotional_score, 0.70)
+        
+        # Cultural bonus
+        cultural_bonus = 0.0
+        if cultural_score > 0.6:
+            cultural_bonus = (cultural_score - 0.6) * 2.0
+        elif cultural_score > 0.4:
+            cultural_bonus = (cultural_score - 0.4) * 0.8
+        
+        # Philosophical insight bonus
+        philosophical_bonus = self._calculate_philosophical_bonus(text, cultural_score)
+        cultural_bonus += philosophical_bonus
+        
+        # Calculate final score
+        raw_score = (
+            narrative_score * weights['narrative'] +
+            emotional_score * weights['emotional'] +
+            character_score * weights['character'] +
+            cultural_score * weights['cultural'] +
+            technical_score * weights['technical']
+        )
+        
+        raw_score += cultural_bonus
+        raw_score = min(1.25, raw_score)
+        
+        final_score = raw_score * 5.0
+        
+        # Add uniqueness factor
+        fingerprint = hash(text[:500] + title) % 100
+        final_score += (fingerprint / 1000)
+        
+        final_score = round(max(1.8, min(4.9, final_score)), 1)
+        
+        # Add variation in middle range
+        if 3.7 <= final_score <= 4.0:
+            variation = random.uniform(-0.2, 0.2)
+            final_score = round(max(2.0, min(4.8, final_score + variation)), 1)
+        
+        return {
+            'overall_score': final_score,
+            'component_scores': {
+                'narrative': round(narrative_score * 5, 1),
+                'emotional': round(emotional_score * 5, 1),
+                'character': round(character_score * 5, 1),
+                'cultural': round(cultural_score * 5, 1),
+                'technical': round(technical_score * 5, 1)
+            },
+            'weighted_scores': {
+                'narrative': narrative_score,
+                'emotional': emotional_score,
+                'character': character_score,
+                'cultural': cultural_score,
+                'technical': technical_score
+            },
+            'applied_weights': weights,
+            'cultural_bonus': round(cultural_bonus, 3),
+            'philosophical_insight': random.choice(self.philosophical_insights) if cultural_score > 0.4 else None
+        }
+    
+    def _calculate_philosophical_bonus(self, text: str, cultural_score: float) -> float:
+        """Calculate bonus for philosophical depth"""
+        philosophical_keywords = [
+            'identity', 'memory', 'truth', 'justice', 'freedom',
+            'love', 'death', 'time', 'reality', 'consciousness',
+            'morality', 'existence', 'meaning', 'society', 'power'
+        ]
+        
+        matches = sum(1 for keyword in philosophical_keywords if keyword in text)
+        base_bonus = matches * 0.01
+        
+        if cultural_score > 0.5:
+            base_bonus *= 1.5
+        
+        return min(0.05, base_bonus)
+    
+    def _score_narrative(self, ns: Dict, text: str) -> float:
+        """Score narrative structure"""
+        ld = ns.get('lexical_diversity', 0.4)
+        structural = ns.get('structural_score', 0.4)
+        length = len(text.split())
+        base = (ld * 0.5 + structural * 0.5)
+        return min(1.0, base + (length > 300) * 0.15 + (length > 800) * 0.1)
+    
+    def _score_emotional(self, ea: Dict) -> float:
+        """Score emotional arc"""
+        arc = ea.get('arc_score', 0.4)
+        variance = ea.get('emotional_variance', 0.2)
+        return min(1.0, arc * 0.7 + variance * 1.2 + 0.2)
+    
+    def _score_characters(self, ca: Dict, text: str) -> float:
+        """Score character development"""
+        chars = ca.get('potential_characters', 3)
+        density = ca.get('character_density', 0.03)
+        mentions = text.count(" he ") + text.count(" she ") + text.count(" his ") + text.count(" her ")
+        return min(1.0, (chars / 8) * 0.6 + density * 8 + min(mentions / 50, 0.4))
+    
+    def _score_technical(self, ns: Dict, text: str) -> float:
+        """Score technical aspects"""
+        readability = ns.get('readability_score', 0.6)
+        dialogue_density = len(re.findall(r'\b[A-Z][a-z]+:', text)) / max(1, len(text.split('\n')))
+        return min(1.0, readability + dialogue_density * 2 + 0.3)
+
+# --------------------------
+# FILM ANALYSIS ENGINE
 # --------------------------
 class FilmAnalysisEngine:
     """Main engine for comprehensive film analysis"""
@@ -951,9 +1119,10 @@ class FilmAnalysisEngine:
     def __init__(self):
         self.genre_detector = SmartGenreDetector()
         self.cultural_analyzer = CulturalContextAnalyzer()
-        self.film_scorer = EnhancedFilmScorer()
-        self.sentiment_analyzer = SentimentIntensityAnalyzer()
+        self.film_scorer = FilmSpecificScorer()
+        self.sentiment_analyzer = TextProcessor.initialize_nltk()
         self.persistence = PersistenceManager()
+        self.viz_engine = CinematicVisualizationEngine()
     
     def analyze_film(self, film_data: Dict) -> Dict:
         """Main film analysis method with enhanced features"""
@@ -1044,41 +1213,26 @@ class FilmAnalysisEngine:
         avg_sentence_length = len(words) / max(len(sentences), 1)
         readability_score = min(1.0, 1 - (avg_sentence_length - 10) / 40)
         
-        # Structural score with more variation
-        structural_base = random.uniform(0.3, 0.9)
-        if len(sentences) > 10:
-            structural_base = max(structural_base, 0.5)
-        if lexical_diversity > 0.6:
-            structural_base = min(structural_base + 0.1, 0.95)
-        
         return {
             'sentence_count': len(sentences),
             'word_count': len(words),
             'lexical_diversity': round(lexical_diversity, 3),
             'avg_sentence_length': round(avg_sentence_length, 1),
             'readability_score': round(readability_score, 2),
-            'structural_score': round(structural_base, 2)
+            'structural_score': round(random.uniform(0.4, 0.9), 2)
         }
     
     def _analyze_characters(self, text: str) -> Dict:
         """Analyze character development"""
-        # Extract potential character names (simple heuristic)
         words = nltk.word_tokenize(text)
         potential_characters = len([w for w in words if w.istitle() and len(w) > 1])
         
         character_density = potential_characters / max(len(words), 1)
         
-        # Character score with more variation
-        char_score_base = random.uniform(0.3, 0.9)
-        if character_density > 0.04:
-            char_score_base = max(char_score_base, 0.6)
-        if potential_characters > 5:
-            char_score_base = min(char_score_base + 0.1, 0.95)
-        
         return {
             'potential_characters': min(potential_characters, 10),
             'character_density': round(character_density, 3),
-            'character_score': round(char_score_base, 2)
+            'character_score': round(random.uniform(0.3, 0.9), 2)
         }
     
     def _analyze_emotional_arc(self, text: str) -> Dict:
@@ -1106,18 +1260,14 @@ class FilmAnalysisEngine:
             }
         
         # Calculate variance and arc
-        variance = np.var(sentents) if len(sentiments) > 1 else 0.2
+        variance = np.var(sentiments)
         arc_score = min(1.0, variance * 5 + 0.3)
         
         # Determine emotional range
-        if variance > 0.15:
-            emotional_range = 'intense'
-        elif variance > 0.1:
+        if variance > 0.1:
             emotional_range = 'wide'
         elif variance > 0.05:
             emotional_range = 'moderate'
-        elif variance > 0.02:
-            emotional_range = 'subtle'
         else:
             emotional_range = 'narrow'
         
@@ -1137,7 +1287,7 @@ class FilmAnalysisEngine:
         
         cinematic_scores = self._map_to_cinematic_categories(component_scores, genre_result)
         
-        results = {
+        return {
             'smart_summary': self._generate_philosophical_summary(film_data, overall_score, genre_result, cultural_context),
             'cinematic_scores': cinematic_scores,
             'overall_score': overall_score,
@@ -1152,25 +1302,19 @@ class FilmAnalysisEngine:
             'film_title': film_data.get('title', 'Unknown Film'),
             'philosophical_insights': self._generate_philosophical_insights(film_data, analysis_results),
             'ai_tool_suggestions': self._generate_ai_tool_suggestions(analysis_results),
-            'synopsis_analysis': self._analyze_synopsis(film_data.get('synopsis', '')),
             'narrative_arc_analysis': analysis_results.get('narrative_structure', {}),
             'character_ecosystem': analysis_results.get('character_analysis', {})
         }
-        
-        return results
     
     def _map_to_cinematic_categories(self, component_scores: Dict, genre_result: Dict) -> Dict:
         """Map component scores to cinematic categories"""
-        base_scores = {
+        return {
             'story_narrative': component_scores.get('narrative', 3.0),
             'visual_vision': component_scores.get('technical', 3.0) * 1.1,
             'technical_craft': component_scores.get('technical', 3.0),
             'sound_design': component_scores.get('technical', 3.0) * 0.9,
             'performance': component_scores.get('character', 3.0) * 1.2
         }
-        
-        # Ensure scores are within 1.0-5.0 range
-        return {k: max(1.0, min(5.0, v)) for k, v in base_scores.items()}
     
     def _generate_philosophical_summary(self, film_data: Dict, score: float, genre_result: Dict, cultural_context: Dict) -> str:
         """Generate philosophical film summary"""
@@ -1195,7 +1339,7 @@ class FilmAnalysisEngine:
             quality = "promising"
             impact = "an evolving artistic voice"
             philosophical_frame = "developing narrative consciousness"
-        elif score >= 2.0:
+        elif score >= 2.5:
             quality = "emerging"
             impact = "a foundational creative endeavor"
             philosophical_frame = "nascent artistic exploration"
@@ -1228,14 +1372,10 @@ class FilmAnalysisEngine:
         # Check narrative strength
         if cinematic_scores.get('story_narrative', 0) >= 4.0:
             strengths.append("Strong narrative structure with compelling storytelling")
-        elif cinematic_scores.get('story_narrative', 0) >= 3.0:
-            strengths.append("Solid narrative foundation with clear storytelling")
         
         # Check character development
         if cinematic_scores.get('performance', 0) >= 4.0:
             strengths.append("Well-developed characters with depth and authenticity")
-        elif cinematic_scores.get('performance', 0) >= 3.0:
-            strengths.append("Emerging character development with potential")
         
         # Check cultural relevance
         if cultural_context.get('is_culturally_relevant'):
@@ -1244,13 +1384,11 @@ class FilmAnalysisEngine:
         # Check technical aspects
         if cinematic_scores.get('technical_craft', 0) >= 3.5:
             strengths.append("Solid technical execution and production values")
-        elif cinematic_scores.get('technical_craft', 0) >= 2.5:
-            strengths.append("Adequate technical foundation for development")
         
         # Add default strengths if none found
         if not strengths:
-            strengths.append("Clear creative vision and intention")
-            strengths.append("Foundation for artistic development")
+            strengths.append("Solid foundation for further development")
+            strengths.append("Clear narrative intention")
         
         return strengths[:3]
     
@@ -1262,7 +1400,7 @@ class FilmAnalysisEngine:
         min_score = min(cinematic_scores.values()) if cinematic_scores else 0
         min_category = min(cinematic_scores.items(), key=lambda x: x[1])[0] if cinematic_scores else ""
         
-        if min_score < 2.5:
+        if min_score < 3.0:
             category_map = {
                 'story_narrative': 'narrative structure',
                 'visual_vision': 'visual storytelling',
@@ -1272,12 +1410,6 @@ class FilmAnalysisEngine:
             }
             weakness_category = category_map.get(min_category, min_category.replace('_', ' '))
             weaknesses.append(f"Could benefit from stronger {weakness_category}")
-        
-        # Check for very low scores
-        for category, score in cinematic_scores.items():
-            if score < 2.0:
-                category_name = category.replace('_', ' ').title()
-                weaknesses.append(f"{category_name} needs significant improvement")
         
         # Add generic weaknesses if needed
         if not weaknesses:
@@ -1303,7 +1435,7 @@ class FilmAnalysisEngine:
             recommendations.append("Leverage cultural themes for deeper resonance")
         
         # Technical recommendations
-        if cinematic_scores.get('technical_craft', 0) < 3.0:
+        if cinematic_scores.get('technical_craft', 0) < 3.5:
             recommendations.append("Enhance production values with focused resources")
         
         if not recommendations:
@@ -1320,9 +1452,7 @@ class FilmAnalysisEngine:
             'premier': ["South by Southwest (SXSW)", "Tribeca Film Festival", 
                        "Telluride Film Festival", "Venice Film Festival"],
             'specialized': ["BlackStar Film Festival", "Urbanworld Film Festival", 
-                          "Pan African Film Festival", "AfroFilm Festival"],
-            'developing': ["Local film festivals", "Emerging filmmaker showcases", 
-                         "University film competitions", "Online film festivals"]
+                          "Pan African Film Festival", "AfroFilm Festival"]
         }
         
         if score >= 4.5:
@@ -1331,12 +1461,9 @@ class FilmAnalysisEngine:
         elif score >= 4.0:
             level = "premier"
             festivals = festivals_by_level['premier']
-        elif score >= 3.0:
+        else:
             level = "specialized"
             festivals = festivals_by_level['specialized']
-        else:
-            level = "developing"
-            festivals = festivals_by_level['developing']
         
         # Add specialized festivals for cultural relevance
         if cultural_context.get('is_culturally_relevant'):
@@ -1352,51 +1479,28 @@ class FilmAnalysisEngine:
         genre = genre_result.get('primary_genre', 'Unknown')
         
         audience_mapping = {
-            'Drama': ["Film enthusiasts", "Art house audiences", "Critics", "Mature viewers"],
-            'Comedy': ["General audiences", "Young adults", "Festival goers", "Casual viewers"],
-            'Horror': ["Genre fans", "Thrill-seekers", "Niche audiences", "Cult film enthusiasts"],
-            'Sci-Fi': ["Tech enthusiasts", "Fantasy fans", "Futurists", "Speculative fiction readers"],
-            'Action': ["Mainstream audiences", "Action fans", "Entertainment seekers", "Blockbuster viewers"],
-            'Black Cinema': ["Cultural audiences", "Diaspora communities", "Socially conscious viewers", "Academic circles"],
-            'Urban Drama': ["Urban audiences", "Youth demographics", "Social realism enthusiasts", "Contemporary art fans"],
-            'Documentary': ["Fact-based audiences", "Educational viewers", "Issue-focused groups", "Academic audiences"],
-            'Short Film': ["Film students", "Festival programmers", "Online audiences", "Experimental art lovers"]
+            'Drama': ["Film enthusiasts", "Art house audiences", "Critics"],
+            'Comedy': ["General audiences", "Young adults", "Festival goers"],
+            'Horror': ["Genre fans", "Thrill-seekers", "Niche audiences"],
+            'Sci-Fi': ["Tech enthusiasts", "Fantasy fans", "Futurists"],
+            'Action': ["Mainstream audiences", "Action fans", "Entertainment seekers"],
+            'Black Cinema': ["Cultural audiences", "Diaspora communities", "Socially conscious viewers"],
+            'Urban Drama': ["Urban audiences", "Youth demographics", "Social realism enthusiasts"]
         }
         
-        audiences = audience_mapping.get(genre, ["General film audiences", "Festival attendees", "Artistic communities"])
+        audiences = audience_mapping.get(genre, ["General film audiences", "Festival attendees"])
         
         # Add cultural audiences if relevant
         if cultural_context.get('is_culturally_relevant'):
             audiences.append("Culturally engaged viewers")
             audiences.append("Academic and educational audiences")
         
-        # Calculate engagement score based on score and genre
-        base_score = random.uniform(0.5, 0.9)
-        if len(audiences) > 4:
-            base_score += 0.05
-        if cultural_context.get('is_culturally_relevant'):
-            base_score += 0.08
-        
-        engagement_score = min(0.95, base_score)
-        
-        market_mapping = {
-            (0.8, 1.0): 'High',
-            (0.6, 0.8): 'Medium-High',
-            (0.4, 0.6): 'Medium',
-            (0.2, 0.4): 'Developing',
-            (0.0, 0.2): 'Niche'
-        }
-        
-        market_potential = 'Medium'
-        for (low, high), potential in market_mapping.items():
-            if low <= engagement_score < high:
-                market_potential = potential
-                break
+        engagement_score = random.uniform(0.6, 0.9) if len(audiences) > 3 else random.uniform(0.4, 0.7)
         
         return {
             'target_audiences': list(set(audiences))[:5],
             'engagement_score': round(engagement_score, 2),
-            'market_potential': market_potential
+            'market_potential': 'High' if engagement_score > 0.7 else 'Medium' if engagement_score > 0.5 else 'Developing'
         }
     
     def _generate_philosophical_insights(self, film_data: Dict, analysis_results: Dict) -> List[str]:
@@ -1405,17 +1509,17 @@ class FilmAnalysisEngine:
         text = film_data.get('synopsis', '') + ' ' + film_data.get('transcript', '')
         
         # Check for existential themes
-        existential_keywords = ['death', 'life', 'meaning', 'existence', 'purpose', 'mortality']
+        existential_keywords = ['death', 'life', 'meaning', 'existence', 'purpose']
         if any(keyword in text.lower() for keyword in existential_keywords):
             insights.append("Explores existential questions about human purpose")
         
         # Check for social themes
-        social_keywords = ['society', 'justice', 'equality', 'power', 'freedom', 'oppression']
+        social_keywords = ['society', 'justice', 'equality', 'power', 'freedom']
         if any(keyword in text.lower() for keyword in social_keywords):
             insights.append("Engages with social structures and power dynamics")
         
         # Check for psychological themes
-        psychological_keywords = ['mind', 'memory', 'identity', 'consciousness', 'dream', 'psyche']
+        psychological_keywords = ['mind', 'memory', 'identity', 'consciousness', 'dream']
         if any(keyword in text.lower() for keyword in psychological_keywords):
             insights.append("Investigates psychological depth and identity")
         
@@ -1455,81 +1559,18 @@ class FilmAnalysisEngine:
         
         return suggestions[:3]
     
-    def _analyze_synopsis(self, synopsis: str) -> Dict:
-        """Analyze synopsis for key insights"""
-        if not synopsis:
-            return {
-                'length': 0,
-                'key_themes': [],
-                'emotional_tone': 'neutral',
-                'complexity': 'low',
-                'sentiment_score': 0.0
-            }
-        
-        words = synopsis.split()
-        sentences = nltk.sent_tokenize(synopsis)
-        
-        # Key theme extraction
-        themes = []
-        theme_keywords = {
-            'love': ['love', 'relationship', 'romance', 'heart', 'affection'],
-            'conflict': ['conflict', 'struggle', 'battle', 'war', 'fight'],
-            'journey': ['journey', 'travel', 'quest', 'adventure', 'voyage'],
-            'identity': ['identity', 'self', 'discovery', 'truth', 'authenticity'],
-            'justice': ['justice', 'right', 'wrong', 'moral', 'ethics'],
-            'memory': ['memory', 'past', 'history', 'remembrance', 'nostalgia'],
-            'family': ['family', 'parent', 'child', 'sibling', 'generation'],
-            'survival': ['survival', 'endure', 'persevere', 'overcome', 'resilience']
-        }
-        
-        for theme, keywords in theme_keywords.items():
-            if any(keyword in synopsis.lower() for keyword in keywords):
-                themes.append(theme)
-        
-        # Emotional tone analysis
-        sentiment = self.sentiment_analyzer.polarity_scores(synopsis)
-        if sentiment['compound'] > 0.3:
-            emotional_tone = 'positive'
-        elif sentiment['compound'] < -0.3:
-            emotional_tone = 'negative'
-        else:
-            emotional_tone = 'neutral'
-        
-        # Complexity assessment
-        word_count = len(words)
-        if word_count > 250:
-            complexity = 'high'
-        elif word_count > 120:
-            complexity = 'medium'
-        else:
-            complexity = 'low'
-        
-        return {
-            'length': word_count,
-            'sentence_count': len(sentences),
-            'avg_sentence_length': round(word_count / max(len(sentences), 1), 1),
-            'key_themes': themes[:4],
-            'emotional_tone': emotional_tone,
-            'complexity': complexity,
-            'sentiment_score': round(sentiment['compound'], 2)
-        }
-    
     def _create_basic_fallback(self, film_data: Dict) -> Dict:
         """Create basic analysis when data is insufficient"""
-        # Generate random score in lower range for basic content
-        base_score = random.uniform(1.5, 2.8)
-        score = round(base_score / 0.1) * 0.1  # Round to nearest 0.1
-        
         return {
             'smart_summary': f"**{film_data.get('title', 'Unknown Film')}** provides a foundation for cinematic exploration with emerging narrative voice.",
             'cinematic_scores': {
-                'story_narrative': max(1.5, round(random.uniform(1.5, 3.0), 1)),
-                'visual_vision': max(1.3, round(random.uniform(1.3, 2.8), 1)),
-                'technical_craft': max(1.2, round(random.uniform(1.2, 2.7), 1)),
-                'sound_design': max(1.3, round(random.uniform(1.3, 2.6), 1)),
-                'performance': max(1.5, round(random.uniform(1.5, 3.0), 1))
+                'story_narrative': 2.8,
+                'visual_vision': 2.5,
+                'technical_craft': 2.3,
+                'sound_design': 2.4,
+                'performance': 2.7
             },
-            'overall_score': score,
+            'overall_score': 2.7,
             'strengths': ["Foundational concept established", "Clear narrative intention"],
             'weaknesses': ["Limited depth in current form", "Needs further development"],
             'recommendations': ["Expand narrative details", "Develop character depth"],
@@ -1539,43 +1580,32 @@ class FilmAnalysisEngine:
             },
             'audience_analysis': {
                 'target_audiences': ["Emerging film enthusiasts", "Workshop audiences"],
-                'engagement_score': round(random.uniform(0.3, 0.5), 2),
+                'engagement_score': 0.4,
                 'market_potential': 'Developing'
             },
             'genre_insights': {'primary_genre': 'Drama', 'confidence': 60},
             'cultural_insights': {'relevance_score': 0.2, 'is_culturally_relevant': False},
             'scoring_breakdown': {
-                'overall_score': score,
-                'component_scores': {
-                    'narrative': max(1.5, round(random.uniform(1.5, 3.0), 1)),
-                    'emotional': max(1.4, round(random.uniform(1.4, 2.9), 1)),
-                    'character': max(1.5, round(random.uniform(1.5, 3.0), 1)),
-                    'cultural': max(1.0, round(random.uniform(1.0, 2.5), 1)),
-                    'technical': max(1.2, round(random.uniform(1.2, 2.7), 1))
-                }
+                'overall_score': 2.7,
+                'component_scores': {'narrative': 2.8, 'emotional': 2.6, 'character': 2.7, 'cultural': 2.0, 'technical': 2.4}
             },
             'film_title': film_data.get('title', 'Unknown Film'),
             'philosophical_insights': ["Explores basic human experiences"],
-            'ai_tool_suggestions': [],
-            'synopsis_analysis': {'length': len(film_data.get('synopsis', '').split()), 'emotional_tone': 'neutral'}
+            'ai_tool_suggestions': []
         }
     
     def _create_error_fallback(self, film_data: Dict, error_msg: str) -> Dict:
         """Create error fallback analysis"""
-        # Generate random score in mid-low range for error cases
-        base_score = random.uniform(2.0, 3.0)
-        score = round(base_score / 0.1) * 0.1  # Round to nearest 0.1
-        
         return {
             'smart_summary': f"**{film_data.get('title', 'Unknown Film')}** encountered analysis challenges. Basic assessment suggests emerging creative potential.",
             'cinematic_scores': {
-                'story_narrative': max(2.0, round(random.uniform(2.0, 3.5), 1)),
-                'visual_vision': max(1.8, round(random.uniform(1.8, 3.2), 1)),
-                'technical_craft': max(1.7, round(random.uniform(1.7, 3.0), 1)),
-                'sound_design': max(1.8, round(random.uniform(1.8, 3.1), 1)),
-                'performance': max(2.0, round(random.uniform(2.0, 3.4), 1))
+                'story_narrative': 3.0,
+                'visual_vision': 2.8,
+                'technical_craft': 2.5,
+                'sound_design': 2.6,
+                'performance': 2.9
             },
-            'overall_score': score,
+            'overall_score': 2.8,
             'strengths': ["Creative concept identified", "Analysis attempted"],
             'weaknesses': ["Insufficient data for full analysis", f"Technical issue: {error_msg[:50]}"],
             'recommendations': ["Provide more detailed content", "Try manual analysis method"],
@@ -1585,1850 +1615,1337 @@ class FilmAnalysisEngine:
             },
             'audience_analysis': {
                 'target_audiences': ["Patient early audiences", "Development-focused viewers"],
-                'engagement_score': round(random.uniform(0.3, 0.5), 2),
+                'engagement_score': 0.3,
                 'market_potential': 'Emerging'
             },
             'genre_insights': {'primary_genre': 'Unknown', 'confidence': 0},
             'cultural_insights': {'relevance_score': 0.0, 'is_culturally_relevant': False},
             'scoring_breakdown': {
-                'overall_score': score,
-                'component_scores': {
-                    'narrative': max(2.0, round(random.uniform(2.0, 3.5), 1)),
-                    'emotional': max(1.9, round(random.uniform(1.9, 3.3), 1)),
-                    'character': max(2.0, round(random.uniform(2.0, 3.4), 1)),
-                    'cultural': max(1.5, round(random.uniform(1.5, 2.8), 1)),
-                    'technical': max(1.7, round(random.uniform(1.7, 3.0), 1))
-                }
+                'overall_score': 2.8,
+                'component_scores': {'narrative': 3.0, 'emotional': 2.8, 'character': 2.9, 'cultural': 2.2, 'technical': 2.5}
             },
             'film_title': film_data.get('title', 'Unknown Film'),
             'philosophical_insights': ["Analysis in progress"],
-            'ai_tool_suggestions': [{'tool': 'Error Recovery', 'purpose': 'Issue diagnosis', 'benefit': 'Improved analysis stability'}],
-            'synopsis_analysis': {'length': 0, 'emotional_tone': 'neutral', 'error': error_msg}
+            'ai_tool_suggestions': [{'tool': 'Error Recovery', 'purpose': 'Issue diagnosis', 'benefit': 'Improved analysis stability'}]
         }
 
 # --------------------------
-# ENHANCED HISTORY ANALYTICS PAGE
+# ePORTFOLIO SYSTEM
 # --------------------------
-class EnhancedHistoryAnalyticsPage:
-    """Enhanced analytics page for viewing analysis history and trends"""
+class EnhancedEPortfolioSystem:
+    """Enhanced ePortfolio system with cinematic visualization"""
     
-    def __init__(self, persistence: PersistenceManager):
+    def __init__(self, persistence, viz_engine):
         self.persistence = persistence
+        self.viz_engine = viz_engine
     
-    def show(self) -> None:
-        """Display the enhanced analytics dashboard"""
-        st.header("📈 Advanced Analytics Dashboard")
+    def show_portfolio(self) -> None:
+        """Display the enhanced ePortfolio dashboard"""
+        st.header("🎬 Cinematic ePortfolio")
         st.markdown("---")
         
-        # Get analytics data
-        analytics_data = self.persistence.get_analytics_data()
+        # Get all films
+        all_films = self.persistence.get_all_films()
         
-        if analytics_data is None or len(analytics_data) == 0:
-            st.info("No analysis history yet. Analyze some films to see analytics!")
-            if st.button("← Back to Dashboard", key="back_to_dashboard_from_analytics"):
+        if not all_films:
+            st.info("No films in your portfolio yet. Analyze some films to build your collection!")
+            if st.button("← Back to Dashboard"):
                 st.session_state.current_page = "🏠 Dashboard"
                 st.rerun()
             return
         
-        # Analytics view selector
-        view_options = ['Overview', 'Trends', 'Genres', 'Cultural Analysis', 'Score Distribution']
-        selected_view = st.selectbox(
-            "Select Analytics View:",
-            view_options,
-            index=view_options.index(st.session_state.get('analytics_view', 'Overview'))
-        )
-        st.session_state.analytics_view = selected_view
+        # Portfolio stats
+        stats = self._calculate_portfolio_stats(all_films)
         
-        if selected_view == 'Overview':
-            self._show_overview_analytics(analytics_data)
-        elif selected_view == 'Trends':
-            self._show_trends_analytics(analytics_data)
-        elif selected_view == 'Genres':
-            self._show_genre_analytics(analytics_data)
-        elif selected_view == 'Cultural Analysis':
-            self._show_cultural_analytics(analytics_data)
-        elif selected_view == 'Score Distribution':
-            self._show_score_distribution(analytics_data)
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            self._create_portfolio_stat("Total Films", stats['total'], "#667eea")
+        with col2:
+            self._create_portfolio_stat("Avg Score", f"{stats['avg_score']:.1f}", "#764ba2")
+        with col3:
+            self._create_portfolio_stat("Top Genre", stats['top_genre'], "#f093fb")
+        with col4:
+            self._create_portfolio_stat("Elite Films", stats['elite_count'], "#FFD700")
         
-        # Detailed history table
-        st.markdown("---")
-        st.subheader("📋 Detailed Analysis History")
+        # View selector
+        view_options = ['Cinematic Grid', 'Score Timeline', 'Genre Analysis', 'Cultural Focus']
+        selected_view = st.selectbox("Portfolio View:", view_options)
         
-        # Create enhanced history dataframe
-        history_df = pd.DataFrame(st.session_state.analysis_history)
+        if selected_view == 'Cinematic Grid':
+            self._show_cinematic_grid(all_films)
+        elif selected_view == 'Score Timeline':
+            self._show_score_timeline(all_films)
+        elif selected_view == 'Genre Analysis':
+            self._show_genre_analysis(all_films)
+        elif selected_view == 'Cultural Focus':
+            self._show_cultural_analysis(all_films)
         
-        if not history_df.empty:
-            # Add viewing buttons
-            history_df['timestamp'] = pd.to_datetime(history_df['timestamp'])
-            history_df['date'] = history_df['timestamp'].dt.strftime('%Y-%m-%d')
-            history_df['time'] = history_df['timestamp'].dt.strftime('%H:%M')
-            
-            # Display the dataframe
-            display_cols = ['title', 'overall_score', 'detected_genre', 'date', 'time']
-            st.dataframe(
-                history_df[display_cols].rename(columns={
-                    'title': 'Film Title',
-                    'overall_score': 'Score',
-                    'detected_genre': 'Genre',
-                    'date': 'Date',
-                    'time': 'Time'
-                }),
-                use_container_width=True
-            )
-            
-            # Quick filter options
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("🏆 View Top Films", width='stretch'):
-                    # Sort by score and show top 3
-                    top_films = sorted(
-                        st.session_state.analysis_history,
-                        key=lambda x: x.get('overall_score', 0),
-                        reverse=True
-                    )[:3]
-                    
-                    for film in top_films:
-                        if st.button(f"🔍 {film.get('title', 'Unknown')[:30]} - {film.get('overall_score', 0)}/5.0", 
-                                   key=f"view_from_history_{film.get('id', '')}"):
-                            stored_result = self.persistence.load_results(film.get('id', ''))
-                            if stored_result:
-                                st.session_state.current_results_display = stored_result['analysis_results']
-                                st.session_state.current_analysis_id = film.get('id', '')
-                                st.session_state.show_results_page = True
-                                st.session_state.current_page = "🏠 Dashboard"
-                                st.rerun()
-            
-            with col2:
-                if st.button("📥 Export History as CSV", width='stretch'):
-                    csv = history_df.to_csv(index=False)
-                    st.download_button(
-                        label="Click to download",
-                        data=csv,
-                        file_name=f"film_analysis_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
-                    )
-        
-        # Back to dashboard button
-        st.markdown("---")
-        if st.button("← Back to Dashboard", key="back_to_dashboard_bottom"):
+        # Back button
+        if st.button("← Back to Dashboard", use_container_width=True):
             st.session_state.current_page = "🏠 Dashboard"
             st.rerun()
     
-    def _show_overview_analytics(self, analytics_data: pd.DataFrame) -> None:
-        """Show overview analytics"""
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Total Analyses", len(analytics_data))
-        with col2:
-            avg_score = analytics_data['overall_score'].mean()
-            st.metric("Average Score", f"{avg_score:.1f}/5.0")
-        with col3:
-            unique_genres = analytics_data['detected_genre'].nunique()
-            st.metric("Unique Genres", unique_genres)
-        with col4:
-            if 'cultural_relevance' in analytics_data.columns:
-                cultural_pct = (analytics_data['cultural_relevance'] > 0.5).mean() * 100
-                st.metric("Cultural Films", f"{cultural_pct:.0f}%")
-        
-        # Recent activity chart
-        st.subheader("📊 Recent Activity")
-        
-        # Create date-based aggregation
-        daily_counts = analytics_data.groupby('date').size().reset_index(name='count')
-        daily_counts['date'] = pd.to_datetime(daily_counts['date'])
-        daily_counts = daily_counts.sort_values('date')
-        
-        fig = px.line(daily_counts, x='date', y='count', 
-                     title='Daily Analysis Count',
-                     markers=True)
-        fig.update_layout(height=300)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    def _show_trends_analytics(self, analytics_data: pd.DataFrame) -> None:
-        """Show trends analytics"""
-        st.subheader("📈 Score Trends Over Time")
-        
-        # Convert timestamp for plotting
-        analytics_data['timestamp'] = pd.to_datetime(analytics_data['timestamp'])
-        analytics_data = analytics_data.sort_values('timestamp')
-        
-        # Create moving average
-        window_size = min(5, len(analytics_data))
-        analytics_data['moving_avg'] = analytics_data['overall_score'].rolling(
-            window=window_size, min_periods=1
-        ).mean()
-        
-        fig = go.Figure()
-        
-        # Add individual scores
-        fig.add_trace(go.Scatter(
-            x=analytics_data['timestamp'],
-            y=analytics_data['overall_score'],
-            mode='markers',
-            name='Individual Scores',
-            marker=dict(size=8, opacity=0.6)
-        ))
-        
-        # Add moving average
-        fig.add_trace(go.Scatter(
-            x=analytics_data['timestamp'],
-            y=analytics_data['moving_avg'],
-            mode='lines',
-            name=f'{window_size}-film Moving Average',
-            line=dict(color='red', width=3)
-        ))
-        
-        fig.update_layout(
-            title='Score Trend Over Time',
-            xaxis_title='Date',
-            yaxis_title='Score (out of 5.0)',
-            height=400
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Time of day analysis
-        st.subheader("🕒 Analysis by Time of Day")
-        
-        if 'time_of_day' in analytics_data.columns:
-            time_counts = analytics_data['time_of_day'].value_counts().sort_index()
-            
-            fig = px.bar(x=time_counts.index, y=time_counts.values,
-                        title='Analyses by Hour of Day',
-                        labels={'x': 'Hour of Day', 'y': 'Number of Analyses'})
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
-    
-    def _show_genre_analytics(self, analytics_data: pd.DataFrame) -> None:
-        """Show genre analytics"""
-        st.subheader("🎭 Genre Analysis")
-        
-        # Genre distribution
-        genre_counts = analytics_data['detected_genre'].value_counts()
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            fig = px.pie(values=genre_counts.values, names=genre_counts.index,
-                        title='Genre Distribution')
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Genre performance
-            genre_scores = analytics_data.groupby('detected_genre')['overall_score'].agg(['mean', 'count']).round(2)
-            genre_scores = genre_scores.sort_values('mean', ascending=False)
-            
-            st.write("**Genre Performance:**")
-            st.dataframe(
-                genre_scores.rename(columns={'mean': 'Avg Score', 'count': 'Count'}),
-                use_container_width=True
-            )
-        
-        # Genre trends over time
-        st.subheader("📊 Genre Trends")
-        
-        # Create genre time series
-        genre_time_data = []
-        for genre in genre_counts.index[:5]:  # Top 5 genres
-            genre_data = analytics_data[analytics_data['detected_genre'] == genre]
-            if not genre_data.empty:
-                genre_time_data.append({
-                    'genre': genre,
-                    'count': len(genre_data),
-                    'avg_score': genre_data['overall_score'].mean()
-                })
-        
-        if genre_time_data:
-            genre_trend_df = pd.DataFrame(genre_time_data)
-            
-            fig = px.bar(genre_trend_df, x='genre', y='count',
-                        color='avg_score',
-                        title='Top Genres by Count (colored by avg score)',
-                        color_continuous_scale='Viridis')
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
-    
-    def _show_cultural_analytics(self, analytics_data: pd.DataFrame) -> None:
-        """Show cultural analytics"""
-        st.subheader("🌍 Cultural Relevance Analysis")
-        
-        if 'cultural_relevance' not in analytics_data.columns:
-            st.info("No cultural relevance data available.")
-            return
-        
-        # Cultural relevance distribution
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Histogram of cultural relevance scores
-            fig = px.histogram(analytics_data, x='cultural_relevance',
-                             nbins=10,
-                             title='Cultural Relevance Distribution')
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Cultural vs overall score
-            fig = px.scatter(analytics_data, x='cultural_relevance', y='overall_score',
-                           trendline='ols',
-                           title='Cultural Relevance vs Overall Score',
-                           hover_data=['title'])
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Top culturally relevant films
-        st.subheader("🏆 Top Culturally Relevant Films")
-        
-        cultural_films = analytics_data[analytics_data['cultural_relevance'] > 0.5].copy()
-        if not cultural_films.empty:
-            cultural_films = cultural_films.sort_values('cultural_relevance', ascending=False)
-            
-            cols = st.columns(min(3, len(cultural_films)))
-            
-            for idx, (_, film) in enumerate(cultural_films.head(3).iterrows()):
-                with cols[idx]:
-                    st.metric(
-                        label=film['title'][:20] + ("..." if len(film['title']) > 20 else ""),
-                        value=f"{film['cultural_relevance']:.0%}",
-                        delta=f"Score: {film['overall_score']}/5.0"
-                    )
-                    
-                    if st.button("View Analysis", key=f"cultural_view_{idx}", width='stretch'):
-                        stored_result = self.persistence.load_results(film['id'])
-                        if stored_result:
-                            st.session_state.current_results_display = stored_result['analysis_results']
-                            st.session_state.current_analysis_id = film['id']
-                            st.session_state.show_results_page = True
-                            st.session_state.current_page = "🏠 Dashboard"
-                            st.rerun()
-    
-    def _show_score_distribution(self, analytics_data: pd.DataFrame) -> None:
-        """Show score distribution analytics"""
-        st.subheader("📊 Score Distribution Analysis")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Histogram of scores
-            fig = px.histogram(analytics_data, x='overall_score',
-                             nbins=15,
-                             title='Score Distribution',
-                             color_discrete_sequence=['#667eea'])
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Box plot by genre
-            fig = px.box(analytics_data, x='detected_genre', y='overall_score',
-                        title='Score Distribution by Genre')
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Score statistics
-        st.subheader("📈 Score Statistics")
-        
-        score_stats = analytics_data['overall_score'].describe()
-        
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Mean", f"{score_stats['mean']:.2f}")
-        with col2:
-            st.metric("Median", f"{score_stats['50%']:.2f}")
-        with col3:
-            st.metric("Std Dev", f"{score_stats['std']:.2f}")
-        with col4:
-            st.metric("Range", f"{score_stats['max'] - score_stats['min']:.2f}")
-
-# --------------------------
-# ENHANCED FILM ANALYSIS INTERFACE WITH VIDEO VIEWER
-# --------------------------
-class EnhancedFilmAnalysisInterface:
-    """Main interface for the film analysis application with integrated video viewer"""
-    
-    def __init__(self, analyzer: FilmAnalysisEngine):
-        self.analyzer = analyzer
-        self.persistence = PersistenceManager()
-    
-    def show_dashboard(self) -> None:
-        """Main dashboard for film analysis with enhanced features"""
-        st.header("🎬 FlickFinder AI - Enhanced Scoring Analysis Hub")
-        st.markdown("*Version 3.1 with improved scoring algorithm (1.1-5.0 range)*")
-        
-        # Show enhanced top films section
-        self._show_enhanced_top_films_section()
-        
-        # Check if we should show batch results
-        if st.session_state.get('show_batch_results') and st.session_state.get('batch_results'):
-            self._display_enhanced_batch_results(st.session_state.batch_results)
-            
-            if st.button("← Back to Dashboard", key="back_to_dashboard_batch"):
-                st.session_state.show_batch_results = False
-                st.session_state.batch_results = None
-                st.rerun()
-            return
-        
-        # Check if we should show single film results
-        if st.session_state.get('show_results_page') and st.session_state.get('current_results_display'):
-            self._display_enhanced_film_results(st.session_state.current_results_display)
-            
-            if st.button("← Back to Dashboard", key="back_to_dashboard"):
-                st.session_state.show_results_page = False
-                st.session_state.current_results_display = None
-                st.rerun()
-            return
-        
-        # Display enhanced statistics
-        stats = self._get_enhanced_statistics()
-        
-        st.subheader("📊 Advanced Analytics Dashboard")
-        
-        col1, col2, col3, col4, col5, col6 = st.columns(6)
-        
-        with col1:
-            st.metric("Total Films", stats['total_films'], help="Total number of films analyzed")
-        with col2:
-            if stats['total_films'] > 0:
-                st.metric("Average Score", f"{stats['average_score']}/5.0",
-                         delta=f"{stats['score_trend']:.1f} trend", 
-                         delta_color="normal" if stats['score_trend'] >= 0 else "inverse",
-                         help="Average score with trend analysis")
-        with col3:
-            if stats['total_films'] > 0:
-                st.metric("Score Range", f"{stats['score_range']}", help="Difference between highest and lowest scores")
-        with col4:
-            if stats['total_films'] > 0:
-                st.metric("Cultural Films", stats['cultural_films'], help="Films with significant cultural relevance")
-        with col5:
-            if stats['total_films'] > 0:
-                st.metric("Top Genre", stats['top_genre'][:15], help="Most frequently detected genre")
-        with col6:
-            if stats['total_films'] > 0:
-                st.metric("Analysis Rate", f"{stats['analysis_rate']}/day", help="Average analyses per day")
-        
-        # Quick insights panel
-        with st.expander("💡 **Quick Insights & Trends**", expanded=True):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.write("**📈 Recent Activity:**")
-                if stats['recent_analyses']:
-                    for analysis in stats['recent_analyses'][:3]:
-                        st.write(f"• {analysis['title'][:20]}: {analysis['score']}/5.0")
-                else:
-                    st.write("No recent analyses")
-            
-            with col2:
-                st.write("**🎭 Genre Distribution:**")
-                if stats['genre_distribution']:
-                    for genre, count in list(stats['genre_distribution'].items())[:3]:
-                        st.write(f"• {genre}: {count}")
-                else:
-                    st.write("No genre data")
-        
-        # Analysis methods tabs
-        st.subheader("🎬 Analyze Films")
-        tab1, tab2, tab3 = st.tabs(["🎥 YouTube Analysis", "📝 Manual Entry", "📊 CSV Batch"])
-        
-        with tab1:
-            self._show_youtube_analysis()
-        with tab2:
-            self._show_manual_analysis()
-        with tab3:
-            self._show_csv_interface()
-    
-    def _show_youtube_analysis(self) -> None:
-        """Show YouTube video analysis interface"""
-        st.subheader("🎥 YouTube Video Analysis")
-        st.markdown("Analyze films from YouTube videos by providing a video URL or ID.")
-        
-        col1, col2 = st.columns([3, 1])
-        
-        with col1:
-            youtube_input = st.text_input(
-                "Enter YouTube URL or Video ID:",
-                placeholder="https://www.youtube.com/watch?v=... or just the video ID",
-                key="youtube_input"
-            )
-        
-        with col2:
-            st.write("")  # Spacer
-            st.write("")  # Spacer
-            analyze_button = st.button("🎬 Analyze Video", type="primary", width='stretch')
-        
-        if analyze_button and youtube_input:
-            with st.spinner("🔄 Extracting and analyzing video content..."):
-                try:
-                    # Extract video ID from URL
-                    video_id = self._extract_youtube_id(youtube_input)
-                    
-                    if not video_id:
-                        st.error("Invalid YouTube URL or Video ID. Please check your input.")
-                        return
-                    
-                    # Try to get video info first
-                    video_info = self._get_youtube_video_info(video_id)
-                    
-                    # Get video transcript
-                    transcript_text = ""
-                    try:
-                        # Use correct YouTubeTranscriptApi method
-                        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-                        
-                        # Try to get transcript in preferred language order
-                        languages = ['en', 'en-US', 'en-GB', 'en-CA', 'en-AU']
-                        transcript_found = False
-                        
-                        for lang in languages:
-                            try:
-                                transcript = transcript_list.find_transcript([lang])
-                                transcript_data = transcript.fetch()
-                                transcript_text = " ".join([entry['text'] for entry in transcript_data])
-                                transcript_found = True
-                                st.info(f"✅ Found transcript in {lang}")
-                                break
-                            except:
-                                continue
-                        
-                        if not transcript_found:
-                            # Try any available transcript
-                            try:
-                                # Get first available transcript
-                                for transcript in transcript_list:
-                                    transcript_data = transcript.fetch()
-                                    transcript_text = " ".join([entry['text'] for entry in transcript_data])
-                                    st.info(f"✅ Found transcript in {transcript.language}")
-                                    break
-                            except Exception as e:
-                                st.warning(f"⚠️ Could not extract transcript: {str(e)[:100]}")
-                                transcript_text = ""
-                                
-                    except Exception as e:
-                        st.warning(f"⚠️ Could not extract transcript: {str(e)[:100]}")
-                        st.info("Continuing analysis with available metadata only...")
-                    
-                    # Prepare film data
-                    film_data = {
-                        'title': video_info.get('title', 'YouTube Video'),
-                        'synopsis': f"YouTube video: {video_info.get('description', '')[:500]}...",
-                        'transcript': transcript_text,
-                        'video_id': video_id,
-                        'video_title': video_info.get('title', 'Unknown'),
-                        'duration': self._format_duration(video_info.get('duration', 0)),
-                        'channel': video_info.get('channel', 'Unknown'),
-                        'views': video_info.get('views', 0),
-                        'upload_date': video_info.get('upload_date', ''),
-                        'source': 'youtube'
-                    }
-                    
-                    # If no transcript, provide guidance
-                    if not transcript_text.strip():
-                        st.warning("No transcript available. Analysis will be based on video metadata only.")
-                        film_data['synopsis'] = f"YouTube video by {film_data['channel']}: {video_info.get('description', 'No description available')[:300]}"
-                    
-                    # Analyze the film
-                    results = self.analyzer.analyze_film(film_data)
-                    
-                    # Store video info in session state
-                    st.session_state.current_video_id = video_id
-                    st.session_state.current_video_title = video_info.get('title', 'Unknown')
-                    
-                    # Display success message
-                    st.success(f"✅ Successfully analyzed: {video_info.get('title', 'Unknown')}")
-                    
-                    # Set results to display
-                    st.session_state.current_results_display = results
-                    st.session_state.show_results_page = True
-                    
-                    # Rerun to show results
-                    st.rerun()
-                    
-                except Exception as e:
-                    st.error(f"Error analyzing video: {str(e)}")
-                    st.info("Try entering the film details manually in the 📝 Manual Entry tab.")
-        
-        # Show help and examples
-        with st.expander("ℹ️ How to use YouTube Analysis", expanded=False):
-            st.markdown("""
-            **Instructions:**
-            1. Paste a YouTube URL or Video ID
-            2. Click "Analyze Video"
-            3. Wait for transcript extraction
-            4. View comprehensive analysis with embedded video viewer
-            
-            **Examples:**
-            - Full URL: `https://www.youtube.com/watch?v=dQw4w9WgXcQ`
-            - Short URL: `https://youtu.be/dQw4w9WgXcQ`
-            - Just the ID: `dQw4w9WgXcQ`
-            
-            **Note:** Not all YouTube videos have transcripts available. 
-            If transcript extraction fails, try the manual entry method.
-            """)
-    
-    def _show_manual_analysis(self) -> None:
-        """Show manual film analysis interface"""
-        st.subheader("📝 Manual Film Analysis")
-        st.markdown("Enter film details manually for comprehensive analysis.")
-        
-        with st.form("manual_analysis_form"):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                title = st.text_input("Film Title *", placeholder="Enter film title", key="manual_title")
-                director = st.text_input("Director", placeholder="Director's name", key="manual_director")
-                writer = st.text_input("Writer", placeholder="Writer's name", key="manual_writer")
-            
-            with col2:
-                duration = st.text_input("Duration", placeholder="e.g., 120m, 2h 15m", key="manual_duration")
-                genre = st.text_input("Genre (optional)", placeholder="e.g., Drama, Comedy", key="manual_genre")
-                year = st.number_input("Year", min_value=1900, max_value=2100, value=2023, key="manual_year")
-            
-            synopsis = st.text_area(
-                "Synopsis/Description *", 
-                placeholder="Enter a detailed synopsis of the film...",
-                height=150,
-                key="manual_synopsis"
-            )
-            
-            transcript = st.text_area(
-                "Transcript/Dialogue (optional)", 
-                placeholder="Paste film transcript, dialogue, or key scenes...",
-                height=200,
-                key="manual_transcript"
-            )
-            
-            submitted = st.form_submit_button("🎬 Analyze Film", type="primary", width='stretch')
-            
-            if submitted:
-                if not title or not synopsis:
-                    st.error("Please provide at least a film title and synopsis.")
-                    return
-                
-                # Prepare film data
-                film_data = {
-                    'title': title,
-                    'director': director or "Unknown",
-                    'writer': writer or "Unknown",
-                    'duration': duration or "Unknown",
-                    'genre': genre or "",
-                    'year': year,
-                    'synopsis': synopsis,
-                    'transcript': transcript,
-                    'source': 'manual'
-                }
-                
-                # Analyze the film
-                with st.spinner("🔍 Analyzing film content..."):
-                    results = self.analyzer.analyze_film(film_data)
-                    
-                    # Display success message
-                    st.success(f"✅ Successfully analyzed: {title}")
-                    
-                    # Set results to display
-                    st.session_state.current_results_display = results
-                    st.session_state.show_results_page = True
-                    
-                    # Rerun to show results
-                    st.rerun()
-    
-    def _show_csv_interface(self) -> None:
-        """Show CSV batch analysis interface"""
-        st.subheader("📊 Batch Analysis via CSV")
-        st.markdown("Upload a CSV file to analyze multiple films at once.")
-        
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            uploaded_file = st.file_uploader(
-                "Choose a CSV file",
-                type=['csv'],
-                help="CSV should contain columns: title, synopsis (optional: director, writer, duration, genre, year, transcript)"
-            )
-        
-        with col2:
-            st.write("")  # Spacer
-            st.write("")  # Spacer
-            analyze_batch = st.button("📦 Analyze Batch", type="primary", width='stretch', disabled=not uploaded_file)
-        
-        if uploaded_file and analyze_batch:
-            with st.spinner("📊 Processing batch analysis..."):
-                try:
-                    # Read CSV file
-                    df = pd.read_csv(uploaded_file)
-                    
-                    # Check required columns
-                    if 'title' not in df.columns or 'synopsis' not in df.columns:
-                        st.error("CSV must contain 'title' and 'synopsis' columns.")
-                        return
-                    
-                    # Process each row
-                    results = []
-                    progress_bar = st.progress(0)
-                    
-                    for idx, row in df.iterrows():
-                        # Prepare film data
-                        film_data = {
-                            'title': str(row.get('title', 'Unknown Film')),
-                            'synopsis': str(row.get('synopsis', '')),
-                            'director': str(row.get('director', 'Unknown')),
-                            'writer': str(row.get('writer', 'Unknown')),
-                            'duration': str(row.get('duration', 'Unknown')),
-                            'genre': str(row.get('genre', '')),
-                            'year': int(row.get('year', 2023)) if pd.notna(row.get('year')) else 2023,
-                            'transcript': str(row.get('transcript', '')),
-                            'source': 'csv_batch'
-                        }
-                        
-                        # Analyze film
-                        analysis_result = self.analyzer.analyze_film(film_data)
-                        
-                        # Store results
-                        results.append({
-                            'title': film_data['title'],
-                            'overall_score': analysis_result['overall_score'],
-                            'genre': analysis_result.get('genre_insights', {}).get('primary_genre', 'Unknown'),
-                            'cultural_relevance': analysis_result.get('cultural_insights', {}).get('relevance_score', 0),
-                            'analysis_result': analysis_result,
-                            'film_data': film_data
-                        })
-                        
-                        # Update progress
-                        progress_bar.progress((idx + 1) / len(df))
-                    
-                    # Store batch results
-                    st.session_state.batch_results = results
-                    st.session_state.show_batch_results = True
-                    
-                    # Show success message
-                    st.success(f"✅ Successfully analyzed {len(results)} films!")
-                    st.info(f"📈 Average score: {np.mean([r['overall_score'] for r in results]):.1f}/5.0")
-                    
-                    # Rerun to show results
-                    st.rerun()
-                    
-                except Exception as e:
-                    st.error(f"Error processing CSV: {str(e)}")
-        
-        # Show CSV template and instructions
-        with st.expander("📋 CSV Format Instructions", expanded=False):
-            st.markdown("""
-            **Required columns:**
-            - `title`: Film title (string)
-            - `synopsis`: Film description/summary (string)
-            
-            **Optional columns:**
-            - `director`: Director's name (string)
-            - `writer`: Writer's name (string) 
-            - `duration`: Film duration (string, e.g., "120m", "2h 15m")
-            - `genre`: Film genre (string)
-            - `year`: Release year (integer)
-            - `transcript`: Full transcript or key dialogue (string)
-            
-            **Example CSV format:**
-            ```csv
-            title,synopsis,director,genre,year
-            "Urban Dreams","A story about city life...","John Doe","Drama",2023
-            "Concrete Memories","Exploring urban identity...","Jane Smith","Documentary",2022
-            ```
-            
-            **Note:** 
-            - CSV should have a header row
-            - Maximum recommended batch size: 50 films
-            - Analysis time depends on content length
-            """)
-    
-    def _extract_youtube_id(self, url_or_id: str) -> Optional[str]:
-        """Extract YouTube video ID from URL or return as-is if already an ID"""
-        # If it looks like just an ID (no special characters except dash and underscore)
-        if re.match(r'^[\w\-_]{11}$', url_or_id):
-            return url_or_id
-        
-        # Try to extract from various YouTube URL formats
-        patterns = [
-            r'(?:youtube\.com\/watch\?v=)([\w\-_]{11})',
-            r'(?:youtu\.be\/)([\w\-_]{11})',
-            r'(?:youtube\.com\/embed\/)([\w\-_]{11})',
-            r'(?:youtube\.com\/v\/)([\w\-_]{11})',
-            r'(?:youtube\.com\/watch\?.*v=)([\w\-_]{11})'
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, url_or_id)
-            if match:
-                return match.group(1)
-        
-        return None
-    
-    def _get_youtube_video_info(self, video_id: str) -> Dict:
-        """Get YouTube video information (simulated or using oEmbed API)"""
-        try:
-            # Try to get info from YouTube oEmbed API
-            oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
-            response = requests.get(oembed_url, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    'title': data.get('title', 'YouTube Video'),
-                    'description': data.get('author_name', '') + ' - YouTube video',
-                    'duration': 0,  # oEmbed doesn't provide duration
-                    'channel': data.get('author_name', 'Unknown Channel'),
-                    'views': 0,
-                    'upload_date': '',
-                    'thumbnail_url': data.get('thumbnail_url', f'https://img.youtube.com/vi/{video_id}/hqdefault.jpg')
-                }
-        
-        except Exception as e:
-            print(f"Could not fetch video info from API: {str(e)}")
-        
-        # Fallback to simulated data
-        film_titles = [
-            "Urban Dreams: A City Story",
-            "The Last Sunset",
-            "Echoes of Tomorrow",
-            "Shadows in the City",
-            "Voices from the Street",
-            "Concrete Dreams",
-            "The Neighborhood Chronicles",
-            "City Lights, Dark Nights"
-        ]
-        
-        descriptions = [
-            "A compelling story about urban life and personal struggles.",
-            "Exploring themes of identity and community in modern society.",
-            "A film that captures the essence of contemporary challenges.",
-            "Storytelling that reflects on human connections in a digital age."
-        ]
-        
-        channels = [
-            "Independent Filmmaker",
-            "Urban Cinema Collective",
-            "Digital Storytellers",
-            "Film Festival Selection"
-        ]
-        
-        return {
-            'title': random.choice(film_titles),
-            'description': random.choice(descriptions),
-            'duration': random.randint(120, 1800),
-            'channel': random.choice(channels),
-            'views': random.randint(1000, 1000000),
-            'upload_date': f"202{random.randint(2, 4)}-{random.randint(1, 12):02d}-{random.randint(1, 28):02d}",
-            'thumbnail_url': f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
-        }
-    
-    def _format_duration(self, seconds: int) -> str:
-        """Format duration in seconds to readable format"""
-        if not seconds:
-            return "Unknown"
-        
-        hours = seconds // 3600
-        minutes = (seconds % 3600) // 60
-        secs = seconds % 60
-        
-        if hours > 0:
-            return f"{hours}h {minutes}m"
-        else:
-            return f"{minutes}m {secs}s"
-    
-    def _show_enhanced_top_films_section(self) -> None:
-        """Show enhanced top films section with philosophical insights"""
-        top_films = self.persistence.get_top_films()
-        
-        if top_films:
-            st.subheader("🏆 Top Films - Cinematic Excellence")
-            st.caption("*Films demonstrating exceptional artistic merit and cultural resonance*")
-            
-            cols = st.columns(min(3, len(top_films)))
-            
-            for idx, film_data in enumerate(top_films[:3]):
-                with cols[idx]:
-                    analysis = film_data['analysis_results']
-                    film_info = film_data['film_data']
-                    
-                    # Extract enhanced info
-                    genre = analysis.get('genre_insights', {}).get('primary_genre', 'Unknown')
-                    if isinstance(genre, dict):
-                        genre = genre.get('primary_genre', 'Unknown')
-                    
-                    cultural_score = analysis.get('cultural_insights', {}).get('relevance_score', 0)
-                    philosophical = analysis.get('philosophical_insights', [])
-                    philosophical_text = philosophical[0] if philosophical else "Artistic expression"
-                    
-                    # Enhanced film card
-                    cultural_badge = "🌍" if cultural_score > 0.5 else ""
-                    philosophical_icon = "💭" if philosophical else "🎨"
-                    
-                    st.markdown(f"""
-                    <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                              border-radius: 10px; padding: 15px; margin: 10px 0; border: 2px solid gold;
-                              box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
-                        <h4 style='color: white; margin: 0 0 10px 0; text-align: center;'>{film_info.get('title', 'Unknown')[:25]}</h4>
-                        <div style='text-align: center;'>
-                            <h1 style='color: gold; margin: 5px 0; font-size: 32px;'>{analysis['overall_score']}/5.0</h1>
-                            <p style='color: white; margin: 5px 0; font-size: 14px;'>
-                                {genre} {cultural_badge} {philosophical_icon}
-                            </p>
-                            <p style='color: #ddd; margin: 5px 0; font-size: 12px;'>
-                                {film_info.get('director', 'Unknown')[:20]}
-                            </p>
-                            <p style='color: #ccc; margin: 5px 0; font-size: 11px; font-style: italic;'>
-                                "{philosophical_text[:60]}..."
-                            </p>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Enhanced view button with philosophical context
-                    if st.button(f"🔍 Deep Analysis", key=f"view_top_{idx}", width='stretch'):
-                        st.session_state.current_results_display = analysis
-                        st.session_state.current_analysis_id = film_data.get('film_id')
-                        st.session_state.show_results_page = True
-                        st.rerun()
-        
-        st.markdown("---")
-    
-    def _display_enhanced_batch_results(self, batch_results: List[Dict]) -> None:
-        """Display enhanced batch analysis results"""
-        st.header("📊 Batch Analysis Results")
-        
-        if not batch_results:
-            st.info("No batch results to display.")
-            return
-        
-        # Summary statistics
-        total_films = len(batch_results)
-        scores = [r['overall_score'] for r in batch_results]
-        avg_score = np.mean(scores)
-        cultural_scores = [r['cultural_relevance'] for r in batch_results]
-        avg_cultural = np.mean(cultural_scores)
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Total Films", total_films)
-        with col2:
-            st.metric("Average Score", f"{avg_score:.1f}/5.0")
-        with col3:
-            st.metric("High Scores (≥4.0)", sum(1 for s in scores if s >= 4.0))
-        with col4:
-            st.metric("Avg Cultural", f"{avg_cultural:.0%}")
-        
-        # Results table
-        st.subheader("📋 Detailed Results")
-        
-        # Create results dataframe
-        results_data = []
-        for result in batch_results:
-            results_data.append({
-                'Title': result['title'][:30],
-                'Score': result['overall_score'],
-                'Genre': result['genre'][:15] if isinstance(result['genre'], str) else 'Unknown',
-                'Cultural': f"{result['cultural_relevance']:.0%}",
-                'Status': '🏆 Top' if result['overall_score'] >= 4.0 else '✅ Good' if result['overall_score'] >= 3.0 else '📈 Developing'
-            })
-        
-        results_df = pd.DataFrame(results_data)
-        st.dataframe(results_df, use_container_width=True)
-        
-        # Score distribution
-        st.subheader("📈 Score Distribution")
-        
-        fig = go.Figure(data=[go.Histogram(x=scores, nbinsx=15, marker_color='#667eea')])
-        fig.update_layout(
-            title='Score Distribution',
-            xaxis_title='Score',
-            yaxis_title='Count',
-            height=300
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Top films section
-        st.subheader("🏆 Top Performing Films")
-        
-        top_films = sorted(batch_results, key=lambda x: x['overall_score'], reverse=True)[:3]
-        
-        for i, film in enumerate(top_films):
-            with st.expander(f"{i+1}. {film['title'][:30]} - {film['overall_score']}/5.0"):
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.write(f"**Score:** {film['overall_score']}/5.0")
-                    st.write(f"**Genre:** {film['genre']}")
-                    st.write(f"**Cultural Relevance:** {film['cultural_relevance']:.0%}")
-                
-                with col2:
-                    if st.button("View Full Analysis", key=f"batch_view_{i}"):
-                        st.session_state.current_results_display = film['analysis_result']
-                        st.session_state.show_results_page = True
-                        st.session_state.batch_results = None
-                        st.session_state.show_batch_results = False
-                        st.rerun()
-        
-        # Export options
-        st.subheader("💾 Export Results")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("📥 Download as CSV", width='stretch'):
-                # Create downloadable CSV
-                export_df = pd.DataFrame([
-                    {
-                        'title': r['title'],
-                        'score': r['overall_score'],
-                        'genre': r['genre'],
-                        'cultural_relevance': r['cultural_relevance'],
-                        'director': r['film_data'].get('director', ''),
-                        'year': r['film_data'].get('year', ''),
-                        'analysis_summary': r['analysis_result'].get('smart_summary', '')[:200]
-                    }
-                    for r in batch_results
-                ])
-                
-                csv = export_df.to_csv(index=False)
-                st.download_button(
-                    label="Click to download",
-                    data=csv,
-                    file_name=f"film_analysis_batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
-                    width='stretch'
-                )
-        
-        with col2:
-            if st.button("✨ Save to Projects", width='stretch'):
-                project_name = st.text_input("Project Name:", value=f"Batch Analysis {datetime.now().strftime('%Y-%m-%d')}")
-                
-                if project_name:
-                    for result in batch_results:
-                        self.persistence.save_project(
-                            f"{project_name} - {result['title'][:20]}",
-                            result['film_data'],
-                            result['analysis_result']
-                        )
-                    st.success(f"✅ Saved {len(batch_results)} films to project: {project_name}")
-    
-    def _get_enhanced_statistics(self) -> Dict:
-        """Get enhanced analysis statistics"""
-        films = list(st.session_state.stored_results.values())
-        history = st.session_state.analysis_history
-        
-        if not films:
-            return {
-                "total_films": 0,
-                "average_score": 0,
-                "score_range": 0,
-                "cultural_films": 0,
-                "top_genre": "N/A",
-                "analysis_rate": 0,
-                "score_trend": 0,
-                "recent_analyses": [],
-                "genre_distribution": {}
-            }
-        
-        scores = [film["analysis_results"]["overall_score"] for film in films]
-        cultural_films = sum(1 for film in films 
-                           if film["analysis_results"].get('cultural_insights', {}).get('is_culturally_relevant', False))
+    def _calculate_portfolio_stats(self, films: List) -> Dict:
+        """Calculate portfolio statistics"""
+        scores = [f['analysis_results']['overall_score'] for f in films]
         
         # Genre distribution
         genre_counter = Counter()
-        for item in history:
-            genre = item.get('detected_genre', 'Unknown')
-            if genre and genre != 'Unknown':
-                genre_counter[genre] += 1
+        for film in films:
+            genre = film['analysis_results'].get('genre_insights', {}).get('primary_genre', 'Unknown')
+            if isinstance(genre, dict):
+                genre = genre.get('primary_genre', 'Unknown')
+            genre_counter[genre] += 1
         
-        # Score trend (last 5 vs previous 5)
-        trend = 0
-        if len(history) >= 10:
-            recent_scores = [h['overall_score'] for h in history[-5:]]
-            previous_scores = [h['overall_score'] for h in history[-10:-5]]
-            if previous_scores:
-                trend = np.mean(recent_scores) - np.mean(previous_scores)
-        
-        # Analysis rate (analyses per day)
-        if len(history) > 1:
-            dates = [datetime.fromisoformat(h['timestamp']).date() for h in history]
-            date_range = (max(dates) - min(dates)).days or 1
-            analysis_rate = len(history) / max(date_range, 1)
-        else:
-            analysis_rate = 0
-        
-        # Recent analyses
-        recent_analyses = []
-        for item in history[-5:]:
-            recent_analyses.append({
-                'title': item.get('title', 'Unknown'),
-                'score': item.get('overall_score', 0),
-                'genre': item.get('detected_genre', 'Unknown')
-            })
+        # Elite films (score >= 4.0)
+        elite_films = [f for f in films if f['analysis_results']['overall_score'] >= 4.0]
         
         return {
-            "total_films": len(films),
-            "average_score": round(np.mean(scores), 2),
-            "highest_score": round(max(scores), 2),
-            "lowest_score": round(min(scores), 2),
-            "score_range": round(max(scores) - min(scores), 2),
-            "score_std": round(np.std(scores), 2) if len(scores) > 1 else 0,
-            "cultural_films": cultural_films,
-            "top_genre": genre_counter.most_common(1)[0][0] if genre_counter else "N/A",
-            "analysis_rate": round(analysis_rate, 1),
-            "score_trend": round(trend, 2),
-            "recent_analyses": recent_analyses[::-1],
-            "genre_distribution": dict(genre_counter.most_common(5))
+            'total': len(films),
+            'avg_score': np.mean(scores) if scores else 0,
+            'top_genre': genre_counter.most_common(1)[0][0] if genre_counter else 'N/A',
+            'elite_count': len(elite_films)
         }
     
-    def _display_enhanced_film_results(self, results: Dict) -> None:
-        """Display enhanced film analysis results with integrated video viewer"""
-        st.success("🎉 Advanced Film Analysis Complete!")
-        
-        # Get film data
-        film_data = {}
-        if st.session_state.current_analysis_id:
-            stored_result = self.persistence.load_results(st.session_state.current_analysis_id)
-            if stored_result:
-                film_data = stored_result['film_data']
-        
-        # Display film title with philosophical context
-        film_title = film_data.get('title', results.get('film_title', 'Unknown Film'))
-        philosophical_insights = results.get('philosophical_insights', [])
-        primary_insight = philosophical_insights[0] if philosophical_insights else "Cinematic Exploration"
-        
-        # ============================================
-        # VIDEO VIEWER SECTION - EMBEDDED YOUTUBE PLAYER
-        # ============================================
-        
-        # Check if we have a YouTube video to display
-        video_id = None
-        video_title = None
-        
-        # Check session state first
-        if st.session_state.get('current_video_id'):
-            video_id = st.session_state.current_video_id
-            video_title = st.session_state.get('current_video_title', '')
-        # Check film data
-        elif film_data.get('video_id'):
-            video_id = film_data['video_id']
-            video_title = film_data.get('video_title', '')
-        
-        # If we have a video ID, create a video viewer section
-        if video_id:
-            st.markdown("---")
-            st.subheader("🎬 Film / Video Viewer")
-            
-            # Create a two-column layout for video and info
-            video_col, info_col = st.columns([3, 2])
-            
-            with video_col:
-                # Display YouTube embed
-                embed_html = f"""
-                <div style="border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.2); margin-bottom: 15px;">
-                    <iframe 
-                        width="100%" 
-                        height="400" 
-                        src="https://www.youtube.com/embed/{video_id}?rel=0&modestbranding=1" 
-                        title="YouTube video player" 
-                        frameborder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowfullscreen
-                        style="border-radius: 10px;">
-                    </iframe>
-                </div>
-                """
-                st.markdown(embed_html, unsafe_allow_html=True)
-                
-                # Video controls
-                st.caption("🎥 Use the video player to watch scenes and verify analysis")
-                
-            with info_col:
-                st.markdown("**📺 Video Details**")
-                if video_title:
-                    st.write(f"**Title:** {video_title}")
-                
-                # Show video duration if available
-                if film_data.get('duration'):
-                    st.write(f"**Duration:** {film_data.get('duration')}")
-                
-                # Show channel info if available
-                if film_data.get('channel'):
-                    st.write(f"**Channel:** {film_data.get('channel')}")
-                
-                if film_data.get('views'):
-                    st.write(f"**Views:** {film_data.get('views'):,}")
-                
-                if film_data.get('upload_date'):
-                    st.write(f"**Uploaded:** {film_data.get('upload_date')}")
-                
-                # Quick actions
-                st.markdown("---")
-                st.markdown("**🔗 Quick Links**")
-                
-                # Create buttons for YouTube actions
-                yt_col1, yt_col2 = st.columns(2)
-                with yt_col1:
-                    youtube_url = f"https://youtube.com/watch?v={video_id}"
-                    if st.button("📺 Open YouTube", key="open_yt", width='stretch'):
-                        st.markdown(f'<meta http-equiv="refresh" content="0; url={youtube_url}">', unsafe_allow_html=True)
-                
-                with yt_col2:
-                    if st.button("📋 Copy Link", key="copy_yt", width='stretch'):
-                        st.code(youtube_url, language="text")
-                        st.toast("YouTube link copied!", icon="✅")
-            
-            st.markdown("---")
-        
-        # ============================================
-        # END OF VIDEO VIEWER SECTION
-        # ============================================
-        
-        st.markdown(f"""
-        <div style='text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                  border-radius: 15px; margin: 20px 0; border: 3px solid white; box-shadow: 0 6px 12px rgba(0,0,0,0.15);'>
-            <h1 style='color: white; margin: 0; font-size: 32px;'>{film_title}</h1>
-            <p style='color: #ddd; margin: 10px 0 0 0; font-size: 16px; font-style: italic;'>
-                "{primary_insight}"
-            </p>
+    def _create_portfolio_stat(self, label: str, value: Any, color: str) -> None:
+        """Create portfolio statistic card"""
+        html = f"""
+        <div class="grid-cell" style="text-align: center;">
+            <div style="color: #AAAAAA; font-size: 0.9em; margin-bottom: 5px;">{label}</div>
+            <div style="color: {color}; font-size: 1.8em; font-weight: bold; margin: 10px 0;">
+                {value}
+            </div>
         </div>
-        """, unsafe_allow_html=True)
-        
-        # Overall score with contextual explanation
-        overall_score = results['overall_score']
-        score_context = self._get_score_context(overall_score)
-        
-        st.markdown(f"""
-        <div style='text-align: center; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                  border-radius: 15px; margin: 20px 0; border: 3px solid #FFD700; box-shadow: 0 4px 8px rgba(0,0,0,0.1);'>
-            <h1 style='color: gold; margin: 0; font-size: 48px;'>{overall_score}/5.0</h1>
-            <p style='color: white; font-size: 20px; margin: 10px 0;'>🎬 Cinematic Score</p>
-            <p style='color: #eee; font-size: 14px; margin: 5px 0;'>{score_context}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Enhanced Film Details Section
-        st.subheader("📋 Comprehensive Film Analysis")
-        
-        # Create tabs for different analysis aspects
-        # Add "🎥 Video Analysis" tab if we have video
-        if video_id:
-            detail_tabs = st.tabs(["🎬 Film Info", "🎥 Video Analysis", "🧠 Philosophical", "🤖 AI Tools", "📊 Analytics"])
-        else:
-            detail_tabs = st.tabs(["🎬 Film Information", "🧠 Philosophical Insights", "🤖 AI Enhancement", "📊 Deep Analytics"])
-        
-        if video_id:
-            # With video tabs
-            with detail_tabs[0]:
-                self._display_film_information(film_data, results)
-            
-            with detail_tabs[1]:
-                self._display_video_analysis_section(film_data, results, video_id)
-            
-            with detail_tabs[2]:
-                self._display_philosophical_insights(results)
-            
-            with detail_tabs[3]:
-                self._display_ai_enhancements(results)
-            
-            with detail_tabs[4]:
-                self._display_deep_analytics(results)
-        else:
-            # Original tabs (no video)
-            with detail_tabs[0]:
-                self._display_film_information(film_data, results)
-            
-            with detail_tabs[1]:
-                self._display_philosophical_insights(results)
-            
-            with detail_tabs[2]:
-                self._display_ai_enhancements(results)
-            
-            with detail_tabs[3]:
-                self._display_deep_analytics(results)
-        
-        # Enhanced Category Scores with Visualizations
-        st.subheader("🎯 Multidimensional Analysis")
-        
-        scores = results['cinematic_scores']
-        
-        # Create a radar chart for scores
-        self._create_score_radar_chart(scores)
-        
-        # Score breakdown expander
-        with st.expander("📈 **Advanced Score Breakdown & Distribution**", expanded=st.session_state.get('show_breakdown', False)):
-            self._display_score_breakdown(results)
-        
-        # Synopsis Analysis
-        synopsis_analysis = results.get('synopsis_analysis', {})
-        if synopsis_analysis.get('length', 0) > 0:
-            st.subheader("📖 Synopsis Analysis")
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Length", f"{synopsis_analysis['length']} words")
-            with col2:
-                st.metric("Sentiment", synopsis_analysis['emotional_tone'].title())
-            with col3:
-                st.metric("Complexity", synopsis_analysis['complexity'].title())
-            
-            if synopsis_analysis.get('key_themes'):
-                st.write("**Key Themes:** " + ", ".join(synopsis_analysis['key_themes']))
-        
-        # Recommendations and Next Steps
-        st.subheader("🚀 Strategic Recommendations")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write("**🎪 Festival Strategy:**")
-            festival_recs = results['festival_recommendations']
-            st.write(f"**Level:** {festival_recs['level']}")
-            for festival in festival_recs['festivals']:
-                st.write(f"• {festival}")
-        
-        with col2:
-            st.write("**🎯 Development Path:**")
-            for recommendation in results.get('recommendations', []):
-                st.write(f"• {recommendation}")
+        """
+        st.markdown(html, unsafe_allow_html=True)
     
-    def _get_score_context(self, score: float) -> str:
-        """Get contextual explanation for score"""
+    def _show_cinematic_grid(self, films: List) -> None:
+        """Display films in cinematic grid"""
+        # Sort by score
+        sorted_films = sorted(films, key=lambda x: x['analysis_results']['overall_score'], reverse=True)
+        
+        # Create grid
+        cols = st.columns(4)
+        for idx, film in enumerate(sorted_films[:12]):  # Limit to 12 films
+            with cols[idx % 4]:
+                self._display_film_portfolio_card(film, idx)
+    
+    def _display_film_portfolio_card(self, film: Dict, idx: int) -> None:
+        """Display film portfolio card"""
+        film_data = film['film_data']
+        analysis = film['analysis_results']
+        
+        title = film_data.get('title', 'Unknown')[:20]
+        score = analysis['overall_score']
+        genre = analysis.get('genre_insights', {}).get('primary_genre', 'Unknown')
+        if isinstance(genre, dict):
+            genre = genre.get('primary_genre', 'Unknown')
+        
+        # Color based on score
         if score >= 4.5:
-            return "Exceptional - Award-caliber cinematic achievement"
+            color = "#00FFFF"
+            status = "ELITE"
         elif score >= 4.0:
-            return "Excellent - Professional quality with strong artistic vision"
+            color = "#00FFAA"
+            status = "EXCELLENT"
         elif score >= 3.5:
-            return "Strong - Compelling work with clear potential"
+            color = "#AAFF00"
+            status = "STRONG"
         elif score >= 3.0:
-            return "Solid - Well-executed foundation for development"
-        elif score >= 2.5:
-            return "Developing - Promising concepts with room for growth"
-        elif score >= 2.0:
-            return "Emerging - Foundational creative exploration"
-        elif score >= 1.5:
-            return "Beginning - Initial creative expression"
+            color = "#FFFF00"
+            status = "GOOD"
         else:
-            return "Introductory - Early stage development"
-    
-    def _display_film_information(self, film_data: Dict, results: Dict) -> None:
-        """Display comprehensive film information"""
-        col1, col2 = st.columns(2)
+            color = "#FFAA00"
+            status = "DEVELOPING"
         
+        # Create card
+        col1, col2 = st.columns([3, 1])
         with col1:
-            st.markdown("**🎬 Film Information**")
-            st.write(f"**Title:** {film_data.get('title', 'Unknown')}")
-            if film_data.get('director') and film_data.get('director') != 'Unknown':
-                st.write(f"**Director:** {film_data.get('director')}")
-            if film_data.get('writer') and film_data.get('writer') != 'Unknown':
-                st.write(f"**Writer:** {film_data.get('writer')}")
-            if film_data.get('duration') and film_data.get('duration') != 'Unknown':
-                st.write(f"**Duration:** {film_data.get('duration')}")
-            
-            # Synopsis preview
-            if film_data.get('synopsis'):
-                with st.expander("📖 View Synopsis", expanded=False):
-                    st.write(film_data.get('synopsis'))
-        
+            st.markdown(f"**{title}**")
         with col2:
-            st.markdown("**📊 Analysis Details**")
-            
-            genre_insights = results['genre_insights']
-            if isinstance(genre_insights, dict) and 'primary_genre' in genre_insights:
-                st.write(f"**Primary Genre:** {genre_insights['primary_genre']}")
-                if genre_insights.get('confidence'):
-                    st.write(f"**Confidence:** {genre_insights['confidence']}%")
-                if genre_insights.get('secondary_genres'):
-                    st.write(f"**Secondary Genres:** {', '.join(genre_insights['secondary_genres'])}")
-            else:
-                st.write(f"**Detected Genre:** {genre_insights.get('detected_genre', 'Unknown')}")
-            
-            cultural_insights = results.get('cultural_insights', {})
-            if cultural_insights.get('is_culturally_relevant'):
-                relevance = cultural_insights.get('relevance_score', 0)
-                st.write(f"**Cultural Relevance:** {relevance:.0%}")
-                if cultural_insights.get('primary_themes'):
-                    st.write(f"**Cultural Themes:** {', '.join(cultural_insights['primary_themes'])}")
-            
-            if st.session_state.last_analysis_time:
-                last_time = datetime.fromisoformat(st.session_state.last_analysis_time)
-                st.write(f"**Analyzed:** {last_time.strftime('%Y-%m-%d %H:%M')}")
+            st.markdown(f"<span style='color: {color}; font-weight: bold;'>{score:.1f}</span>", 
+                       unsafe_allow_html=True)
+        
+        st.markdown(f"<small style='color: #666;'>{genre}</small>", unsafe_allow_html=True)
+        
+        if st.button("View Details", key=f"view_{idx}", use_container_width=True):
+            st.session_state.current_results_display = analysis
+            st.session_state.show_results_page = True
+            st.session_state.current_analysis_id = film.get('film_id', idx)
+            st.session_state.current_page = "📊 Results"
+            st.rerun()
+        
+        st.divider()
     
-    def _display_video_analysis_section(self, film_data: Dict, results: Dict, video_id: str) -> None:
-        """Display video-specific analysis section"""
-        st.markdown("### 🎥 Video Content Analysis")
-        
-        # Transcript analysis
-        transcript = film_data.get('transcript', '')
-        if transcript:
-            word_count = len(transcript.split())
-            st.write(f"**Transcript Analysis:** {word_count} words")
+    def _show_score_timeline(self, films: List) -> None:
+        """Display score timeline visualization"""
+        # Prepare timeline data
+        timeline_data = []
+        for film in films:
+            film_data = film['film_data']
+            analysis = film['analysis_results']
             
-            # Key moments
-            with st.expander("🔍 View Key Video Moments", expanded=False):
-                if word_count > 500:
-                    # Extract sample lines from transcript
-                    lines = transcript.split('.')
-                    key_lines = [line.strip() for line in lines[:10] if len(line.strip()) > 50]
-                    for i, line in enumerate(key_lines[:5]):
-                        st.write(f"**Moment {i+1}:** {line[:200]}...")
-                else:
-                    st.write("Transcript preview:")
-                    st.text(transcript[:500] + "..." if len(transcript) > 500 else transcript)
+            timestamp = film_data.get('timestamp', '')
+            if not timestamp:
+                timestamp = (datetime.now() - timedelta(days=len(timeline_data))).isoformat()
             
-            # Sentiment from transcript
-            if transcript:
-                from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-                analyzer = SentimentIntensityAnalyzer()
-                sentiment = analyzer.polarity_scores(transcript)
-                st.write(f"**Transcript Sentiment:**")
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Positive", f"{sentiment['pos']:.0%}")
-                with col2:
-                    st.metric("Neutral", f"{sentiment['neu']:.0%}")
-                with col3:
-                    st.metric("Negative", f"{sentiment['neg']:.0%}")
-        else:
-            st.info("No transcript available for this video. Score based on metadata only.")
-        
-        # Study Group Helper
-        st.markdown("---")
-        st.markdown("### 👥 Study Group Helper")
-        
-        st.write("**Watch these key moments to understand the scoring:**")
-        
-        # Create key moments based on scoring
-        score_moments = []
-        cinematic_scores = results['cinematic_scores']
-        
-        if cinematic_scores.get('performance', 0) >= 4.0:
-            score_moments.append("Watch character interactions and performances (around 25% mark)")
-        
-        if cinematic_scores.get('story_narrative', 0) >= 4.0:
-            score_moments.append("Observe narrative structure and plot development (mid-point)")
-        
-        if cinematic_scores.get('visual_vision', 0) >= 4.0:
-            score_moments.append("Notice cinematography and visual composition (throughout)")
-        
-        if cinematic_scores.get('sound_design', 0) >= 4.0:
-            score_moments.append("Listen to audio design and music integration (climax scene)")
-        
-        # Add default moments if none specific
-        if not score_moments:
-            score_moments = [
-                "Watch opening scene for establishing tone",
-                "Observe character development in middle act",
-                "Notice resolution and ending impact"
-            ]
-        
-        for i, moment in enumerate(score_moments[:4]):
-            st.write(f"**{i+1}.** {moment}")
-        
-        # Video analysis tips
-        with st.expander("💡 Video Analysis Tips", expanded=False):
-            st.markdown("""
-            **For Study Groups:**
-            1. **Pause and Discuss:** Stop at key moments to discuss scoring criteria
-            2. **Scene Comparison:** Compare different scenes against score components
-            3. **Group Scoring:** Have each member score independently, then compare
-            4. **Cultural Context:** Discuss how cultural elements affect scoring
-            
-            **Video Controls:**
-            - Use YouTube's speed controls for detailed analysis
-            - Turn on captions for dialogue analysis
-            - Take timestamp notes for specific moments
-            """)
-    
-    def _display_philosophical_insights(self, results: Dict) -> None:
-        """Display philosophical insights"""
-        philosophical_insights = results.get('philosophical_insights', [])
-        cultural_insights = results.get('cultural_insights', {})
-        
-        if philosophical_insights or cultural_insights.get('philosophical_insights'):
-            st.write("**💭 Philosophical Framework:**")
-            
-            all_insights = []
-            if philosophical_insights:
-                all_insights.extend(philosophical_insights)
-            if cultural_insights.get('philosophical_insights'):
-                all_insights.extend(cultural_insights['philosophical_insights'])
-            
-            for insight in all_insights[:3]:
-                st.write(f"• {insight}")
-            
-            # Genre philosophical aspect
-            genre_details = results.get('genre_insights', {}).get('details', {})
-            if genre_details and 'philosophical_aspect' in genre_details:
-                st.write(f"\n**🎭 Genre Philosophy:** {genre_details['philosophical_aspect']}")
-        else:
-            st.info("No specific philosophical insights detected. This film appears to focus on direct narrative storytelling.")
-    
-    def _display_ai_enhancements(self, results: Dict) -> None:
-        """Display AI tool suggestions for enhancement"""
-        ai_suggestions = results.get('ai_tool_suggestions', [])
-        
-        if ai_suggestions:
-            st.write("**🤖 AI Enhancement Opportunities:**")
-            st.caption("Suggested tools for deeper analysis and improved scoring")
-            
-            for suggestion in ai_suggestions:
-                with st.expander(f"{suggestion['tool']} - {suggestion['purpose']}"):
-                    st.write(f"**Purpose:** {suggestion['purpose']}")
-                    st.write(f"**Benefit:** {suggestion['benefit']}")
-                    st.write(f"**Implementation:** Could enhance scoring accuracy by 10-15%")
-        else:
-            st.info("Current analysis provides comprehensive coverage. For advanced needs, consider GPT-4 for narrative analysis or BERT for cultural context.")
-    
-    def _display_deep_analytics(self, results: Dict) -> None:
-        """Display deep analytics and metrics"""
-        scoring_breakdown = results.get('scoring_breakdown', {})
-        component_scores = scoring_breakdown.get('component_scores', {})
-        weights = scoring_breakdown.get('applied_weights', {})
-        
-        if component_scores and weights:
-            st.write("**📊 Scoring Algorithm Details:**")
-            
-            # Create a DataFrame for visualization
-            score_data = []
-            for component, score in component_scores.items():
-                weight = weights.get(component, 0)
-                weighted_score = score * weight
-                score_data.append({
-                    'Component': component.title(),
-                    'Score': score,
-                    'Weight': weight,
-                    'Weighted': round(weighted_score, 2)
+            try:
+                date = pd.Timestamp(timestamp).date()
+                timeline_data.append({
+                    'date': date,
+                    'score': analysis['overall_score'],
+                    'title': film_data.get('title', 'Unknown'),
+                    'genre': analysis.get('genre_insights', {}).get('primary_genre', 'Unknown')
                 })
+            except:
+                continue
+        
+        if timeline_data:
+            df = pd.DataFrame(timeline_data)
+            df = df.sort_values('date')
             
-            df = pd.DataFrame(score_data)
-            st.dataframe(df, use_container_width=True)
+            # Create timeline chart
+            fig = go.Figure()
             
-            # Cultural bonus
-            cultural_bonus = scoring_breakdown.get('cultural_bonus', 0)
-            if cultural_bonus > 0:
-                st.success(f"🎉 **Cultural Bonus Applied:** +{cultural_bonus:.3f} points")
-    
-    def _create_score_radar_chart(self, scores: Dict) -> None:
-        """Create a radar chart for cinematic scores"""
-        try:
-            categories = list(scores.keys())
-            values = list(scores.values())
+            fig.add_trace(go.Scatter(
+                x=df['date'],
+                y=df['score'],
+                mode='lines+markers',
+                line=dict(color='#00FFFF', width=3),
+                marker=dict(size=10, color=df['score'], colorscale='Viridis'),
+                text=df['title'],
+                hovertemplate='<b>%{text}</b><br>Date: %{x}<br>Score: %{y:.1f}<extra></extra>'
+            ))
             
-            fig = go.Figure(data=go.Scatterpolar(
-                r=values + [values[0]],  # Close the polygon
-                theta=[cat.replace('_', ' ').title() for cat in categories] + [categories[0].replace('_', ' ').title()],
-                fill='toself',
-                fillcolor='rgba(102, 126, 234, 0.3)',
-                line=dict(color='rgb(102, 126, 234)', width=2),
-                hoverinfo='text',
-                text=[f"{cat.replace('_', ' ').title()}: {val}/5.0" for cat, val in zip(categories, values)]
+            # Add trend line
+            z = np.polyfit(range(len(df)), df['score'], 1)
+            p = np.poly1d(z)
+            fig.add_trace(go.Scatter(
+                x=df['date'],
+                y=p(range(len(df))),
+                mode='lines',
+                line=dict(color='#FFD700', width=2, dash='dash'),
+                name='Trend'
             ))
             
             fig.update_layout(
-                polar=dict(
-                    radialaxis=dict(
-                        visible=True,
-                        range=[0, 5],
-                        tickvals=[1, 2, 3, 4, 5],
-                        ticktext=['1', '2', '3', '4', '5']
-                    )
+                title=dict(
+                    text='<b>Score Timeline Evolution</b>',
+                    font=dict(size=18, color='white')
                 ),
-                showlegend=False,
-                height=300,
-                margin=dict(l=50, r=50, t=30, b=30)
+                height=400,
+                paper_bgcolor='rgba(0, 0, 0, 0)',
+                plot_bgcolor='rgba(20, 30, 48, 0.7)',
+                font=dict(color='white'),
+                xaxis=dict(
+                    gridcolor='rgba(255, 255, 255, 0.1)',
+                    title='Date'
+                ),
+                yaxis=dict(
+                    gridcolor='rgba(255, 255, 255, 0.1)',
+                    title='Score',
+                    range=[0, 5.5]
+                ),
+                hovermode='x unified'
             )
             
             st.plotly_chart(fig, use_container_width=True)
             
-        except ImportError:
-            # Fallback to simple columns if plotly not available
-            cols = st.columns(len(scores))
-            categories = [
-                ("🧠 Story", scores['story_narrative'], "#FF6B6B"),
-                ("👁️ Visual", scores['visual_vision'], "#4ECDC4"),
-                ("⚡ Technical", scores['technical_craft'], "#45B7D1"),
-                ("🎵 Sound", scores['sound_design'], "#96CEB4"),
-                ("🌟 Performance", scores['performance'], "#FFD93D")
-            ]
-            
-            for idx, (name, score, color) in enumerate(categories):
-                with cols[idx]:
-                    st.markdown(f"""
-                    <div style='text-align: center; padding: 15px; background: {color}; 
-                              border-radius: 10px; margin: 5px; border: 2px solid white;'>
-                        <h4 style='margin: 0; color: white;'>{name}</h4>
-                        <h2 style='margin: 8px 0; color: white;'>{score}</h2>
-                    </div>
-                    """, unsafe_allow_html=True)
+            # Stats summary
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Highest Score", f"{df['score'].max():.1f}")
+            with col2:
+                st.metric("Lowest Score", f"{df['score'].min():.1f}")
+            with col3:
+                st.metric("Average Score", f"{df['score'].mean():.1f}")
     
-    def _display_score_breakdown(self, results: Dict) -> None:
-        """Display detailed score breakdown and distributions"""
+    def _show_genre_analysis(self, films: List) -> None:
+        """Display genre analysis visualization"""
+        genre_counter = Counter()
+        genre_scores = {}
+        
+        for film in films:
+            analysis = film['analysis_results']
+            genre = analysis.get('genre_insights', {}).get('primary_genre', 'Unknown')
+            if isinstance(genre, dict):
+                genre = genre.get('primary_genre', 'Unknown')
+            
+            genre_counter[genre] += 1
+            
+            if genre not in genre_scores:
+                genre_scores[genre] = []
+            genre_scores[genre].append(analysis['overall_score'])
+        
+        if not genre_counter:
+            st.info("No genre data available")
+            return
+        
+        # Calculate average scores per genre
+        avg_scores = {genre: np.mean(scores) for genre, scores in genre_scores.items()}
+        
+        # Create visualization
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Genre distribution pie chart
+            fig1 = go.Figure(data=[
+                go.Pie(
+                    labels=list(genre_counter.keys()),
+                    values=list(genre_counter.values()),
+                    hole=0.4,
+                    marker=dict(colors=px.colors.qualitative.Set3),
+                    textinfo='label+percent',
+                    hoverinfo='label+value+percent'
+                )
+            ])
+            
+            fig1.update_layout(
+                title=dict(
+                    text='<b>Genre Distribution</b>',
+                    font=dict(size=16, color='white')
+                ),
+                height=350,
+                paper_bgcolor='rgba(0, 0, 0, 0)',
+                plot_bgcolor='rgba(0, 0, 0, 0)',
+                font=dict(color='white')
+            )
+            
+            st.plotly_chart(fig1, use_container_width=True)
+        
+        with col2:
+            # Genre scores bar chart
+            genres_sorted = sorted(avg_scores.keys(), key=lambda g: avg_scores[g], reverse=True)
+            fig2 = go.Figure(data=[
+                go.Bar(
+                    x=genres_sorted,
+                    y=[avg_scores[g] for g in genres_sorted],
+                    marker=dict(
+                        color=[avg_scores[g] for g in genres_sorted],
+                        colorscale='Viridis'
+                    ),
+                    text=[f"{avg_scores[g]:.1f}" for g in genres_sorted],
+                    textposition='auto'
+                )
+            ])
+            
+            fig2.update_layout(
+                title=dict(
+                    text='<b>Average Scores by Genre</b>',
+                    font=dict(size=16, color='white')
+                ),
+                height=350,
+                paper_bgcolor='rgba(0, 0, 0, 0)',
+                plot_bgcolor='rgba(20, 30, 48, 0.7)',
+                font=dict(color='white'),
+                xaxis=dict(tickangle=45),
+                yaxis=dict(range=[0, 5.5], title='Average Score')
+            )
+            
+            st.plotly_chart(fig2, use_container_width=True)
+    
+    def _show_cultural_analysis(self, films: List) -> None:
+        """Display cultural analysis visualization"""
+        cultural_films = []
+        cultural_scores = []
+        cultural_themes = Counter()
+        
+        for film in films:
+            analysis = film['analysis_results']
+            cultural_insights = analysis.get('cultural_insights', {})
+            
+            if cultural_insights.get('is_culturally_relevant'):
+                cultural_films.append(film)
+                cultural_scores.append(analysis['overall_score'])
+                
+                # Count themes
+                themes = cultural_insights.get('primary_themes', [])
+                for theme in themes:
+                    cultural_themes[theme] += 1
+        
+        if not cultural_films:
+            st.info("No culturally relevant films found")
+            return
+        
+        # Display stats
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Culturally Relevant Films", len(cultural_films))
+        with col2:
+            st.metric("Average Score", f"{np.mean(cultural_scores):.1f}")
+        with col3:
+            top_theme = cultural_themes.most_common(1)[0][0] if cultural_themes else "N/A"
+            st.metric("Top Theme", top_theme)
+        
+        # Display culturally relevant films
+        st.subheader("Culturally Relevant Films")
+        cols = st.columns(3)
+        for idx, film in enumerate(cultural_films[:6]):
+            with cols[idx % 3]:
+                film_data = film['film_data']
+                analysis = film['analysis_results']
+                
+                st.markdown(f"""
+                <div class="grid-cell">
+                    <h4 style="color: white; margin-bottom: 5px;">
+                        {film_data.get('title', 'Unknown')[:20]}
+                    </h4>
+                    <div style="color: #00FFFF; font-size: 1.2em; font-weight: bold;">
+                        {analysis['overall_score']:.1f}
+                    </div>
+                    <div style="color: #AAAAAA; font-size: 0.9em; margin-top: 5px;">
+                        {', '.join(analysis.get('cultural_insights', {}).get('primary_themes', []))[:30]}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # Themes visualization
+        if cultural_themes:
+            st.subheader("Cultural Themes Distribution")
+            themes_df = pd.DataFrame({
+                'Theme': list(cultural_themes.keys()),
+                'Count': list(cultural_themes.values())
+            }).sort_values('Count', ascending=False)
+            
+            fig = px.bar(
+                themes_df,
+                x='Theme',
+                y='Count',
+                color='Count',
+                color_continuous_scale='Viridis'
+            )
+            
+            fig.update_layout(
+                height=300,
+                paper_bgcolor='rgba(0, 0, 0, 0)',
+                plot_bgcolor='rgba(20, 30, 48, 0.7)',
+                font=dict(color='white'),
+                xaxis=dict(tickangle=45)
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+
+# --------------------------
+# COMPARISON SYSTEM
+# --------------------------
+class EnhancedComparisonSystem:
+    """System for comparing multiple films"""
+    
+    def __init__(self, persistence, viz_engine):
+        self.persistence = persistence
+        self.viz_engine = viz_engine
+    
+    def show_comparison(self) -> None:
+        """Display film comparison interface"""
+        st.title("🎬 Film Comparison Analysis")
+        st.markdown("---")
+        
+        # Get all films
+        all_films = self.persistence.get_all_films()
+        
+        if not all_films:
+            st.info("No films to compare. Analyze some films first!")
+            if st.button("← Back to Dashboard"):
+                st.session_state.current_page = "🏠 Dashboard"
+                st.rerun()
+            return
+        
+        # Film selection
+        st.subheader("Select Films to Compare")
+        
+        film_options = {}
+        for film in all_films:
+            film_data = film['film_data']
+            title = film_data.get('title', 'Unknown')
+            film_id = film.get('film_id', hash(title))
+            film_options[f"{title} (Score: {film['analysis_results']['overall_score']:.1f})"] = film_id
+        
+        selected_films = st.multiselect(
+            "Choose 2-6 films to compare:",
+            options=list(film_options.keys()),
+            default=list(film_options.keys())[:min(3, len(film_options))]
+        )
+        
+        if len(selected_films) < 2:
+            st.warning("Please select at least 2 films for comparison.")
+            return
+        
+        # Get selected film data
+        selected_data = []
+        for film_label in selected_films:
+            film_id = film_options[film_label]
+            for film in all_films:
+                if film.get('film_id') == film_id or hash(film['film_data'].get('title', '')) == film_id:
+                    selected_data.append(film)
+                    break
+        
+        # Display comparison
+        if selected_data:
+            self._display_comparison(selected_data)
+        
+        # Back button
+        if st.button("← Back to Dashboard", use_container_width=True):
+            st.session_state.current_page = "🏠 Dashboard"
+            st.rerun()
+    
+    def _display_comparison(self, films: List[Dict]) -> None:
+        """Display film comparison"""
+        # Overall scores comparison
+        st.subheader("Overall Scores Comparison")
+        
+        scores_data = []
+        for film in films:
+            film_data = film['film_data']
+            analysis = film['analysis_results']
+            
+            scores_data.append({
+                'Film': film_data.get('title', 'Unknown')[:20],
+                'Score': analysis['overall_score'],
+                'Genre': analysis.get('genre_insights', {}).get('primary_genre', 'Unknown'),
+                'Cultural Score': analysis.get('cultural_insights', {}).get('relevance_score', 0) * 5
+            })
+        
+        df_scores = pd.DataFrame(scores_data)
+        
+        # Bar chart comparison
+        fig = px.bar(
+            df_scores,
+            x='Film',
+            y='Score',
+            color='Score',
+            color_continuous_scale='Viridis',
+            text='Score',
+            title='Overall Score Comparison'
+        )
+        
+        fig.update_layout(
+            height=400,
+            paper_bgcolor='rgba(0, 0, 0, 0)',
+            plot_bgcolor='rgba(20, 30, 48, 0.7)',
+            font=dict(color='white'),
+            xaxis=dict(tickangle=45)
+        )
+        
+        fig.update_traces(texttemplate='%{text:.1f}', textposition='outside')
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Radar chart comparison
+        st.subheader("Cinematic Elements Comparison")
+        
+        radar_data = []
+        for film in films:
+            film_data = film['film_data']
+            analysis = film['analysis_results']
+            
+            radar_entry = {
+                'title': film_data.get('title', 'Unknown')[:15],
+                'scores': analysis.get('cinematic_scores', {})
+            }
+            radar_data.append(radar_entry)
+        
+        fig = self.viz_engine.create_comparison_radar(radar_data)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Detailed comparison table
+        st.subheader("Detailed Comparison")
+        
+        comparison_cols = st.columns(len(films))
+        for idx, film in enumerate(films):
+            with comparison_cols[idx]:
+                film_data = film['film_data']
+                analysis = film['analysis_results']
+                
+                st.markdown(f"""
+                <div class="holographic-card">
+                    <h4 style="color: #00FFFF; text-align: center;">
+                        {film_data.get('title', 'Unknown')[:20]}
+                    </h4>
+                    <div style="text-align: center;">
+                        <span style="color: #FFD700; font-size: 1.5em; font-weight: bold;">
+                            {analysis['overall_score']:.1f}
+                        </span>
+                    </div>
+                    <hr style="border-color: rgba(255,255,255,0.2);">
+                """, unsafe_allow_html=True)
+                
+                # Genre
+                genre = analysis.get('genre_insights', {}).get('primary_genre', 'Unknown')
+                st.markdown(f"**Genre:** {genre}")
+                
+                # Cultural relevance
+                cultural = analysis.get('cultural_insights', {})
+                if cultural.get('is_culturally_relevant'):
+                    st.markdown("**Cultural:** ✅ Relevant")
+                else:
+                    st.markdown("**Cultural:** ⚪ Standard")
+                
+                # Strengths
+                strengths = analysis.get('strengths', [])[:2]
+                if strengths:
+                    st.markdown("**Strengths:**")
+                    for strength in strengths:
+                        st.markdown(f"• {strength}")
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+
+# --------------------------
+# RESULTS DISPLAY
+# --------------------------
+class EnhancedResultsDisplay:
+    """Display enhanced analysis results with cinematic visuals"""
+    
+    def __init__(self, viz_engine):
+        self.viz_engine = viz_engine
+    
+    def show_results(self, results: Dict) -> None:
+        """Display enhanced analysis results"""
+        if not results:
+            st.warning("No results to display")
+            return
+        
+        # Main results header
+        st.title(f"🎬 {results.get('film_title', 'Film Analysis')}")
+        st.markdown("---")
+        
+        # Score and summary section
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            self._show_score_card(results)
+        
+        with col2:
+            self._show_summary_card(results)
+        
+        # Visualizations section
+        st.markdown("## 📊 Cinematic Analysis Visualizations")
+        
+        viz_tabs = st.tabs(["Radar Analysis", "Component Breakdown", "Philosophical Insights"])
+        
+        with viz_tabs[0]:
+            self._show_radar_analysis(results)
+        
+        with viz_tabs[1]:
+            self._show_component_breakdown(results)
+        
+        with viz_tabs[2]:
+            self._show_philosophical_insights(results)
+        
+        # Detailed analysis section
+        st.markdown("## 🔍 Detailed Analysis")
+        
+        detail_tabs = st.tabs(["Strengths & Weaknesses", "Recommendations", "Audience & Festival", "AI Insights"])
+        
+        with detail_tabs[0]:
+            self._show_strengths_weaknesses(results)
+        
+        with detail_tabs[1]:
+            self._show_recommendations(results)
+        
+        with detail_tabs[2]:
+            self._show_audience_festival(results)
+        
+        with detail_tabs[3]:
+            self._show_ai_insights(results)
+        
+        # Navigation buttons
+        st.markdown("---")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("← Back to Dashboard", use_container_width=True):
+                st.session_state.current_page = "🏠 Dashboard"
+                st.session_state.show_results_page = False
+                st.rerun()
+        
+        with col2:
+            if st.button("📂 Save to Portfolio", use_container_width=True):
+                st.success("Saved to portfolio!")
+        
+        with col3:
+            if st.button("🔄 Compare with Others", use_container_width=True):
+                st.session_state.current_page = "⚖️ Compare Films"
+                st.rerun()
+    
+    def _show_score_card(self, results: Dict) -> None:
+        """Display score card with cinematic styling"""
+        score = results['overall_score']
+        
+        # Create gauge chart
+        fig = self.viz_engine.create_score_gauge(score, "Cinematic Score")
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Determine rating
+        if score >= 4.5:
+            rating = "ELITE"
+            icon = "🔥"
+            color = "#00FFFF"
+        elif score >= 4.0:
+            rating = "EXCELLENT"
+            icon = "⭐"
+            color = "#00FFAA"
+        elif score >= 3.5:
+            rating = "STRONG"
+            icon = "💫"
+            color = "#AAFF00"
+        elif score >= 3.0:
+            rating = "GOOD"
+            icon = "✨"
+            color = "#FFFF00"
+        else:
+            rating = "DEVELOPING"
+            icon = "🌱"
+            color = "#FFAA00"
+        
+        # Rating badge
+        st.markdown(f"""
+        <div style="text-align: center; margin-top: -20px;">
+            <span style="background: {color}20; color: {color}; padding: 8px 20px; 
+                      border-radius: 20px; border: 1px solid {color}80; font-weight: bold;">
+                {icon} {rating}
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    def _show_summary_card(self, results: Dict) -> None:
+        """Display summary card"""
+        st.markdown("""
+        <div class="holographic-card">
+            <h3 style="color: #00FFFF; margin-top: 0;">📋 Smart Summary</h3>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(results.get('smart_summary', 'No summary available.'))
+        
+        # Genre and cultural info
+        genre_info = results.get('genre_insights', {})
+        cultural_info = results.get('cultural_insights', {})
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if isinstance(genre_info, dict):
+                primary_genre = genre_info.get('primary_genre', 'Unknown')
+                if isinstance(primary_genre, dict):
+                    primary_genre = primary_genre.get('primary_genre', 'Unknown')
+                st.metric("Primary Genre", primary_genre)
+        
+        with col2:
+            if cultural_info.get('is_culturally_relevant'):
+                st.metric("Cultural Relevance", "High", delta="Relevant")
+            else:
+                st.metric("Cultural Relevance", "Standard")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    def _show_radar_analysis(self, results: Dict) -> None:
+        """Display radar analysis"""
+        cinematic_scores = results.get('cinematic_scores', {})
+        
+        if cinematic_scores:
+            fig = self.viz_engine.create_cinematic_radar_chart(
+                cinematic_scores, 
+                "Cinematic Element Analysis"
+            )
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No cinematic scores available for radar analysis.")
+    
+    def _show_component_breakdown(self, results: Dict) -> None:
+        """Display component breakdown"""
         scoring_breakdown = results.get('scoring_breakdown', {})
         
         if scoring_breakdown:
-            col1, col2 = st.columns(2)
+            weights = scoring_breakdown.get('applied_weights', {})
+            weighted_scores = scoring_breakdown.get('weighted_scores', {})
             
-            with col1:
-                st.markdown("**🧮 Component Scores**")
-                component_scores = scoring_breakdown.get('component_scores', {})
-                for component, score in component_scores.items():
-                    st.progress(score/5, text=f"{component.title()}: {score}/5.0")
-            
-            with col2:
-                st.markdown("**⚖️ Applied Weights**")
-                weights = scoring_breakdown.get('applied_weights', {})
-                for component, weight in weights.items():
-                    percentage = weight * 100
-                    st.write(f"• **{component.title()}:** {percentage:.1f}%")
-            
-            # Historical context if available
-            history = self.persistence.get_all_history()
-            if len(history) > 1:
-                st.markdown("**📈 Historical Context**")
-                
-                scores = [h['overall_score'] for h in history]
-                current_score = results['overall_score']
-                
-                avg_score = np.mean(scores)
-                percentile = np.sum(np.array(scores) < current_score) / len(scores) * 100
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("vs Average", f"{current_score - avg_score:+.1f}")
-                with col2:
-                    st.metric("Percentile", f"{percentile:.0f}%")
-                with col3:
-                    st.metric("Position", f"{np.sum(np.array(scores) < current_score) + 1}/{len(scores)}")
-
-# --------------------------
-# ENHANCED SIDEBAR COMPONENTS
-# --------------------------
-def display_enhanced_sidebar() -> None:
-    """Display enhanced sidebar with more features"""
-    st.sidebar.title("🎬 FlickFinder AI")
-    st.sidebar.markdown("---")
+            if weights and weighted_scores:
+                fig = self.viz_engine.create_tech_breakdown_chart(weights, weighted_scores)
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No detailed scoring breakdown available.")
+        else:
+            st.info("No component breakdown data available.")
     
-    # Navigation
-    st.sidebar.subheader("📍 Navigation")
-    
-    # Navigation buttons with icons
-    if st.sidebar.button("🏠 Dashboard", width='stretch', key="sidebar_dashboard"):
-        st.session_state.current_page = "🏠 Dashboard"
-        st.session_state.show_results_page = False
-        st.session_state.show_batch_results = False
-        st.rerun()
-    
-    if st.sidebar.button("📈 Advanced Analytics", width='stretch', key="sidebar_analytics"):
-        st.session_state.current_page = "📈 Analytics"
-        st.rerun()
-    
-    if st.sidebar.button("🧠 AI Technology", width='stretch', key="sidebar_ai"):
-        st.session_state.current_page = "🧠 AI Technology"
-        st.rerun()
-    
-    st.sidebar.markdown("---")
-    
-    # Enhanced Quick Stats
-    st.sidebar.subheader("📊 Performance Metrics")
-    
-    films = list(st.session_state.stored_results.values())
-    
-    if films:
-        scores = [film["analysis_results"]["overall_score"] for film in films]
-        cultural_films = sum(1 for film in films 
-                           if film["analysis_results"].get('cultural_insights', {}).get('is_culturally_relevant', False))
+    def _show_philosophical_insights(self, results: Dict) -> None:
+        """Display philosophical insights"""
+        philosophical_insights = results.get('philosophical_insights', [])
+        cultural_insights = results.get('cultural_insights', {}).get('philosophical_insights', [])
         
-        col1, col2 = st.sidebar.columns(2)
+        all_insights = philosophical_insights + cultural_insights
+        
+        if all_insights:
+            st.markdown("""
+            <div class="tech-panel">
+                <h4 style="color: #00FFFF; margin-top: 0;">🧠 Philosophical Depth</h4>
+            """, unsafe_allow_html=True)
+            
+            for insight in all_insights[:3]:
+                st.markdown(f"• {insight}")
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            # Create philosophical depth chart
+            depth_scores = {}
+            for idx, insight in enumerate(all_insights[:5]):
+                depth_scores[f"Insight {idx+1}"] = random.uniform(0.6, 0.95)
+            
+            if depth_scores:
+                fig = self.viz_engine.create_philosophical_radial_chart(depth_scores)
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No philosophical insights available for this analysis.")
+    
+    def _show_strengths_weaknesses(self, results: Dict) -> None:
+        """Display strengths and weaknesses"""
+        col1, col2 = st.columns(2)
         
         with col1:
-            st.sidebar.metric("Films", len(films))
+            st.markdown("""
+            <div class="grid-cell" style="background: rgba(0, 255, 100, 0.1);">
+                <h4 style="color: #00FFAA; margin-top: 0;">✅ Strengths</h4>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            strengths = results.get('strengths', [])
+            if strengths:
+                for strength in strengths:
+                    st.markdown(f"• {strength}")
+            else:
+                st.info("No strengths identified.")
         
         with col2:
-            if scores:
-                st.sidebar.metric("Avg Score", f"{np.mean(scores):.1f}")
-        
-        # Additional metrics in expander
-        with st.sidebar.expander("More Stats"):
-            st.sidebar.write(f"**Cultural Films:** {cultural_films}")
-            st.sidebar.write(f"**Analyses:** {st.session_state.analysis_count}")
-            if scores:
-                st.sidebar.write(f"**Score Range:** {max(scores) - min(scores):.1f}")
+            st.markdown("""
+            <div class="grid-cell" style="background: rgba(255, 100, 100, 0.1);">
+                <h4 style="color: #FF6B6B; margin-top: 0;">⚠️ Areas for Improvement</h4>
+            </div>
+            """, unsafe_allow_html=True)
             
-            if st.session_state.last_analysis_time:
-                last_time = datetime.fromisoformat(st.session_state.last_analysis_time)
-                st.sidebar.write(f"**Last:** {last_time.strftime('%H:%M')}")
+            weaknesses = results.get('weaknesses', [])
+            if weaknesses:
+                for weakness in weaknesses:
+                    st.markdown(f"• {weakness}")
+            else:
+                st.info("No specific weaknesses identified.")
     
-    st.sidebar.markdown("---")
+    def _show_recommendations(self, results: Dict) -> None:
+        """Display recommendations"""
+        recommendations = results.get('recommendations', [])
+        ai_suggestions = results.get('ai_tool_suggestions', [])
+        
+        if recommendations:
+            st.markdown("""
+            <div class="grid-cell" style="background: rgba(0, 150, 255, 0.1);">
+                <h4 style="color: #45B7D1; margin-top: 0;">💡 Recommendations</h4>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            for rec in recommendations:
+                st.markdown(f"• {rec}")
+        
+        if ai_suggestions:
+            st.markdown("""
+            <div class="grid-cell" style="background: rgba(150, 0, 255, 0.1); margin-top: 20px;">
+                <h4 style="color: #764ba2; margin-top: 0;">🤖 AI Tool Suggestions</h4>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            for tool in ai_suggestions:
+                st.markdown(f"**{tool.get('tool', 'Tool')}**: {tool.get('purpose', '')} - {tool.get('benefit', '')}")
     
-    # System Controls
-    st.sidebar.subheader("⚙️ System")
+    def _show_audience_festival(self, results: Dict) -> None:
+        """Display audience and festival analysis"""
+        audience = results.get('audience_analysis', {})
+        festival = results.get('festival_recommendations', {})
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if audience:
+                st.markdown("""
+                <div class="grid-cell">
+                    <h4 style="color: #FFD700; margin-top: 0;">🎯 Target Audience</h4>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("**Primary Audiences:**")
+                for aud in audience.get('target_audiences', [])[:3]:
+                    st.markdown(f"• {aud}")
+                
+                st.metric("Engagement Score", f"{audience.get('engagement_score', 0):.2f}")
+                st.metric("Market Potential", audience.get('market_potential', 'Unknown'))
+        
+        with col2:
+            if festival:
+                st.markdown("""
+                <div class="grid-cell">
+                    <h4 style="color: #FF8E53; margin-top: 0;">🎪 Festival Recommendations</h4>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.metric("Festival Level", festival.get('level', 'Unknown').title())
+                
+                st.markdown("**Recommended Festivals:**")
+                for fest in festival.get('festivals', [])[:3]:
+                    st.markdown(f"• {fest}")
     
-    if st.sidebar.button("🗑️ Clear All History", key="sidebar_clear_all", type="secondary", width='stretch'):
-        persistence = PersistenceManager()
-        persistence.clear_history()
-        st.sidebar.success("✅ History cleared!")
-        st.rerun()
-    
-    # Version info
-    st.sidebar.markdown("---")
-    st.sidebar.caption("FlickFinder AI v3.1")
-    st.sidebar.caption("Enhanced Scoring Edition")
+    def _show_ai_insights(self, results: Dict) -> None:
+        """Display AI insights"""
+        st.markdown("""
+        <div class="tech-panel">
+            <h4 style="color: #00FFFF; margin-top: 0;">🤖 AI Analysis Insights</h4>
+        """, unsafe_allow_html=True)
+        
+        # Narrative analysis
+        narrative = results.get('narrative_arc_analysis', {})
+        if narrative:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Word Count", narrative.get('word_count', 0))
+            with col2:
+                st.metric("Lexical Diversity", f"{narrative.get('lexical_diversity', 0):.3f}")
+            with col3:
+                st.metric("Readability", f"{narrative.get('readability_score', 0):.2f}")
+        
+        # Character analysis
+        characters = results.get('character_ecosystem', {})
+        if characters:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Character Count", characters.get('potential_characters', 0))
+            with col2:
+                st.metric("Character Density", f"{characters.get('character_density', 0):.3f}")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # --------------------------
-# MAIN ENHANCED APPLICATION
+# DASHBOARD
 # --------------------------
-def main() -> None:
-    """Main application entry point"""
-    # Display enhanced sidebar
-    display_enhanced_sidebar()
+class EnhancedDashboard:
+    """Enhanced dashboard with cinematic visualization and analytics"""
     
-    # Initialize enhanced components
-    analyzer = FilmAnalysisEngine()
-    persistence = PersistenceManager()
-    film_interface = EnhancedFilmAnalysisInterface(analyzer)
+    def __init__(self, analysis_engine, persistence):
+        self.engine = analysis_engine
+        self.persistence = persistence
+        self.viz_engine = CinematicVisualizationEngine()
     
-    # Determine which page to show
-    page = st.session_state.current_page
-    
-    if page == "🏠 Dashboard":
-        film_interface.show_dashboard()
-    elif page == "📈 Analytics":
-        history_page = EnhancedHistoryAnalyticsPage(persistence)
-        history_page.show()
-    elif page == "🧠 AI Technology":
-        # Create a simple AI Technology page
-        st.header("🧠 AI Technology & Roadmap")
+    def show_dashboard(self) -> None:
+        """Display the main dashboard"""
+        st.title("🎬 FlickFinder AI - Cinematic Intelligence Dashboard")
         st.markdown("---")
-        st.markdown("""
-        ## 🚀 Next-Generation Film Analysis AI
         
-        **Current Technology Stack:**
-        - **VADER Sentiment Analysis**: Emotional tone detection
-        - **NLTK**: Natural language processing
-        - **Enhanced Scoring Algorithm**: 1.1-5.0 range with granularity
-        - **Custom Algorithms**: Genre and cultural analysis
-        - **Statistical Models**: Comprehensive scoring with variation factors
+        # Top stats row
+        self._show_top_stats()
         
-        **Enhanced Scoring Features (v3.1):**
-        - **Wider Score Range**: 1.1 to 5.0 (previously 1.8-4.9)
-        - **Better Granularity**: Scores rounded to 0.1 increments (3.7, 4.2, 2.5, etc.)
-        - **Natural Distribution**: Scores follow realistic bell curve distribution
-        - **Variation Factors**: Length, sentiment, character density affect scores
-        - **Genre Adjustments**: Different scoring weights for different genres
+        # Main content area
+        col1, col2 = st.columns([2, 1])
         
-        **Enhancement Roadmap:**
-        1. **Phase 1**: BERT/GPT-4 integration for advanced narrative analysis
-        2. **Phase 2**: Multimodal analysis (visual + audio + text)
-        3. **Phase 3**: Predictive analytics for festival success
-        4. **Phase 4**: Real-time production assistant tools
+        with col1:
+            self._show_main_content()
         
-        **New Feature - Video Viewer:**
-        - Embedded YouTube player for study group analysis
-        - Direct video viewing within analysis interface
-        - Study group helper with specific moments to watch
-        """)
+        with col2:
+            self._show_sidebar_content()
+    
+    def _show_top_stats(self) -> None:
+        """Display top statistics row"""
+        col1, col2, col3, col4 = st.columns(4)
         
-        st.markdown("---")
-        if st.button("← Back to Dashboard", key="back_from_ai"):
-            st.session_state.current_page = "🏠 Dashboard"
-            st.rerun()
-    else:
-        # Enhanced About page
-        st.header("🌟 About FlickFinder AI v3.1")
+        with col1:
+            st.metric("Films Analyzed", st.session_state.analysis_count)
         
-        tab1, tab2, tab3 = st.tabs(["Overview", "Features", "Philosophy"])
+        with col2:
+            if st.session_state.analysis_count > 0:
+                history = self.persistence.get_all_history()
+                scores = [h.get('overall_score', 0) for h in history]
+                avg_score = np.mean(scores) if scores else 0
+                st.metric("Average Score", f"{avg_score:.1f}")
+            else:
+                st.metric("Average Score", "0.0")
+        
+        with col3:
+            if st.session_state.last_analysis_time:
+                try:
+                    last_time = datetime.fromisoformat(st.session_state.last_analysis_time)
+                    time_ago = (datetime.now() - last_time).seconds // 60
+                    st.metric("Last Analysis", f"{time_ago} min ago")
+                except:
+                    st.metric("Last Analysis", "Recently")
+            else:
+                st.metric("Last Analysis", "Never")
+        
+        with col4:
+            elite_count = len([f for f in self.persistence.get_all_films() 
+                             if f['analysis_results']['overall_score'] >= 4.0])
+            st.metric("Elite Films", elite_count)
+    
+    def _show_main_content(self) -> None:
+        """Display main content area"""
+        # Quick analysis section
+        st.markdown("### ⚡ Quick Film Analysis")
+        
+        tab1, tab2 = st.tabs(["📝 Manual Input", "🎥 YouTube URL"])
         
         with tab1:
-            st.markdown("""
-            ## 🎬 FlickFinder AI v3.1 - Enhanced Film Analysis
-            
-            **The next generation** of film analysis technology, combining AI intelligence with 
-            cultural awareness and philosophical insight.
-            
-            ### 🚀 What's New in v3.1
-            
-            **Enhanced Scoring Algorithm:**
-            - **Wider Score Range**: 1.1 to 5.0 (allows more nuanced evaluation)
-            - **Better Granularity**: Scores in 0.1 increments (3.7, 4.2, 2.5, etc.)
-            - **Natural Distribution**: Realistic bell curve distribution
-            - **Variation Factors**: Multiple factors create score diversity
-            
-            **Enhanced Analytics:**
-            - Score trends and evolution tracking
-            - Genre distribution analysis
-            - Cultural relevance insights
-            - Time-based pattern recognition
-            
-            **New Video Viewer:**
-            - Embedded YouTube video player
-            - Study group analysis tools
-            - Direct video viewing with analysis
-            
-            **Philosophical Framework:**
-            - Cultural memory recognition
-            - Narrative as truth-seeking
-            - Film as empathy machine
-            - Artistic intent analysis
-            """)
+            self._show_manual_input()
         
         with tab2:
-            st.markdown("""
-            ## 🌟 Enhanced Features
-            
-            **📊 Advanced Analytics Dashboard:**
-            - Real-time score distribution tracking
-            - Genre performance metrics
-            - Cultural relevance scoring
-            - Historical trend analysis
-            
-            **🎥 Video Analysis Tools:**
-            - Embedded YouTube viewer
-            - Transcript analysis
-            - Study group helper
-            - Key moment identification
-            
-            **🎭 Philosophical Insights:**
-            - Cultural context understanding
-            - Narrative pattern recognition
-            - Emotional arc analysis
-            - Character development assessment
-            
-            **🎯 Enhanced Scoring:**
-            - 1.1-5.0 score range with 0.1 granularity
-            - Genre-specific weight adjustments
-            - Cultural and philosophical bonuses
-            - Natural variation factors
-            """)
+            self._show_youtube_input()
         
-        with tab3:
-            st.markdown("""
-            ## 💭 Philosophical Foundation
+        # Recent analyses
+        if st.session_state.analysis_history:
+            st.markdown("### 📅 Recent Analyses")
+            recent_history = st.session_state.analysis_history[-3:]
             
-            **Our Approach to Film Analysis:**
-            
-            **1. Cinema as Cultural Artifact:**
-            We view films not just as entertainment, but as **cultural artifacts** that 
-            reflect and shape society, memory, and identity.
-            
-            **2. Narrative as Human Experience:**
-            Stories are fundamental to human understanding. We analyze narrative structures 
-            as **expressions of human experience** and psychological patterns.
-            
-            **3. Technology as Cultural Interpreter:**
-            AI serves as a **cultural interpreter**, identifying patterns and contexts that 
-            might be overlooked in traditional analysis, while respecting artistic intent.
-            
-            **4. Enhanced Scoring Philosophy:**
-            The new 1.1-5.0 scoring range allows for **more nuanced evaluation** that better 
-            reflects the diverse landscape of cinematic expression, from emerging works to 
-            masterpieces.
-            
-            **5. Study Group Integration:**
-            The embedded video viewer allows **collaborative analysis** where study groups 
-            can watch, pause, and discuss films together with real-time scoring feedback.
-            """)
+            for idx, film in enumerate(reversed(recent_history)):
+                with st.container():
+                    col1, col2, col3 = st.columns([3, 1, 1])
+                    with col1:
+                        st.write(f"**{film['title']}**")
+                        st.caption(film.get('synopsis', '')[:100] + "..." if film.get('synopsis') else "No synopsis")
+                    with col2:
+                        score = film.get('overall_score', 0)
+                        score_color = "#00FFFF" if score >= 4.0 else "#FFD700" if score >= 3.0 else "#AAAAAA"
+                        st.markdown(f"<span style='color: {score_color}; font-size: 1.2em; font-weight: bold;'>{score:.1f}</span>", 
+                                  unsafe_allow_html=True)
+                    with col3:
+                        if st.button("View", key=f"recent_{idx}"):
+                            result = self.persistence.load_results(film['id'])
+                            if result:
+                                st.session_state.current_results_display = result['analysis_results']
+                                st.session_state.show_results_page = True
+                                st.session_state.current_page = "📊 Results"
+                                st.rerun()
+    
+    def _show_sidebar_content(self) -> None:
+        """Display sidebar content"""
+        st.markdown("### 🚀 Quick Actions")
         
+        action_col1, action_col2 = st.columns(2)
+        with action_col1:
+            if st.button("📊 View ePortfolio", use_container_width=True):
+                st.session_state.current_page = "📂 ePortfolio"
+                st.rerun()
+            
+            if st.button("🎯 Compare Films", use_container_width=True):
+                st.session_state.current_page = "⚖️ Compare Films"
+                st.rerun()
+        
+        with action_col2:
+            if st.button("🔄 Clear History", use_container_width=True):
+                self.persistence.clear_history()
+                st.rerun()
+            
+            if st.button("⚙️ Settings", use_container_width=True):
+                st.session_state.current_page = "⚙️ Settings"
+                st.rerun()
+        
+        # Top films
+        if st.session_state.top_films:
+            st.markdown("### 🏆 Top Films")
+            for idx, film in enumerate(st.session_state.top_films):
+                film_data = film['film_data']
+                analysis = film['analysis_results']
+                
+                st.markdown(f"""
+                <div class="grid-cell" style="margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>{film_data.get('title', 'Unknown')[:20]}</strong><br>
+                            <span style="color: #AAAAAA; font-size: 0.8em;">
+                                Score: <span style="color: #FFD700; font-weight: bold;">{analysis['overall_score']:.1f}</span>
+                            </span>
+                        </div>
+                        <span style="background: rgba(0, 255, 255, 0.2); color: #00FFFF; 
+                                  padding: 2px 8px; border-radius: 10px; font-size: 0.7em;">
+                            #{idx + 1}
+                        </span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    def _show_manual_input(self) -> None:
+        """Show manual input form"""
+        with st.form("manual_analysis_form"):
+            title = st.text_input("Film Title", placeholder="Enter film title...")
+            synopsis = st.text_area("Synopsis", placeholder="Enter film synopsis...", height=150)
+            genre = st.selectbox("Genre (optional)", ["", "Drama", "Comedy", "Horror", "Sci-Fi", "Action", 
+                                                     "Thriller", "Romance", "Documentary", "Fantasy", 
+                                                     "Black Cinema", "Urban Drama"])
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                submit = st.form_submit_button("🚀 Analyze Film", use_container_width=True)
+            with col2:
+                st.form_submit_button("Clear", use_container_width=True)
+            
+            if submit and title and synopsis:
+                with st.spinner("Analyzing film with cinematic intelligence..."):
+                    film_data = {
+                        'title': title,
+                        'synopsis': synopsis,
+                        'genre': genre,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    
+                    results = self.engine.analyze_film(film_data)
+                    
+                    if results:
+                        st.success("Analysis complete!")
+                        st.session_state.current_results_display = results
+                        st.session_state.show_results_page = True
+                        st.session_state.current_page = "📊 Results"
+                        st.rerun()
+    
+    def _show_youtube_input(self) -> None:
+        """Show YouTube input form"""
+        youtube_url = st.text_input("YouTube URL", placeholder="https://www.youtube.com/watch?v=...")
+        
+        if youtube_url:
+            video_id = TextProcessor.extract_video_id(youtube_url)
+            
+            if video_id:
+                st.session_state.current_video_id = video_id
+                
+                # Try to get transcript
+                transcript = TextProcessor.get_youtube_transcript(video_id)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("📝 Analyze Transcript", use_container_width=True):
+                        film_data = {
+                            'title': f"YouTube Video: {video_id}",
+                            'synopsis': "Analysis of YouTube video transcript",
+                            'transcript': transcript or "",
+                            'video_id': video_id,
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        
+                        with st.spinner("Analyzing video content..."):
+                            results = self.engine.analyze_film(film_data)
+                            if results:
+                                st.success("Video analysis complete!")
+                                st.session_state.current_results_display = results
+                                st.session_state.show_results_page = True
+                                st.session_state.current_page = "📊 Results"
+                                st.rerun()
+                
+                with col2:
+                    if st.button("🎬 View Video", use_container_width=True):
+                        st.session_state.current_page = "🎬 Video Viewer"
+                        st.rerun()
+
+# --------------------------
+# VIDEO VIEWER
+# --------------------------
+class VideoViewer:
+    """YouTube video viewer component"""
+    
+    @staticmethod
+    def show_video_viewer() -> None:
+        """Display YouTube video viewer"""
+        st.title("🎬 Video Viewer")
         st.markdown("---")
-        if st.button("← Back to Dashboard", key="back_from_about"):
+        
+        if not st.session_state.current_video_id:
+            st.warning("No video selected. Please analyze a YouTube video first.")
+            if st.button("← Back to Dashboard"):
+                st.session_state.current_page = "🏠 Dashboard"
+                st.rerun()
+            return
+        
+        video_id = st.session_state.current_video_id
+        
+        # Video display
+        st.markdown(f"""
+        <div style="display: flex; justify-content: center;">
+            <iframe width="800" height="450" 
+                    src="https://www.youtube.com/embed/{video_id}" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen>
+            </iframe>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Analysis button
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📊 Show Analysis", use_container_width=True):
+                if st.session_state.current_results_display:
+                    st.session_state.current_page = "📊 Results"
+                    st.rerun()
+                else:
+                    st.warning("No analysis available for this video.")
+        
+        with col2:
+            if st.button("← Back to Dashboard", use_container_width=True):
+                st.session_state.current_page = "🏠 Dashboard"
+                st.rerun()
+
+# --------------------------
+# SETTINGS PAGE
+# --------------------------
+class SettingsPage:
+    """Settings page component"""
+    
+    @staticmethod
+    def show_settings() -> None:
+        """Display settings page"""
+        st.title("⚙️ Settings")
+        st.markdown("---")
+        
+        # Display settings
+        st.subheader("Display Settings")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            holographic_mode = st.toggle("Holographic Mode", 
+                                        value=st.session_state.get('holographic_mode', True))
+            st.session_state.holographic_mode = holographic_mode
+        
+        with col2:
+            tech_view = st.toggle("Technical View", 
+                                 value=st.session_state.get('show_tech_view', False))
+            st.session_state.show_tech_view = tech_view
+        
+        # Data management
+        st.subheader("Data Management")
+        
+        if st.button("Clear All Data", type="secondary"):
+            PersistenceManager.clear_history()
+            st.success("All data cleared!")
+            st.rerun()
+        
+        # Export data
+        if st.session_state.analysis_history:
+            if st.button("Export Analysis History"):
+                df = pd.DataFrame(st.session_state.analysis_history)
+                csv = df.to_csv(index=False)
+                
+                st.download_button(
+                    label="Download CSV",
+                    data=csv,
+                    file_name=f"flickfinder_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
+        
+        # Back button
+        if st.button("← Back to Dashboard", use_container_width=True):
             st.session_state.current_page = "🏠 Dashboard"
             st.rerun()
 
+# --------------------------
+# MAIN APPLICATION
+# --------------------------
+class FlickFinderAI:
+    """Main FlickFinder AI application"""
+    
+    def __init__(self):
+        SessionManager.initialize()
+        self.analysis_engine = FilmAnalysisEngine()
+        self.persistence = PersistenceManager()
+        self.viz_engine = CinematicVisualizationEngine()
+        self.dashboard = EnhancedDashboard(self.analysis_engine, self.persistence)
+        self.results_display = EnhancedResultsDisplay(self.viz_engine)
+        self.eportfolio = EnhancedEPortfolioSystem(self.persistence, self.viz_engine)
+        self.comparison_system = EnhancedComparisonSystem(self.persistence, self.viz_engine)
+        self.video_viewer = VideoViewer()
+        self.settings_page = SettingsPage()
+    
+    def run(self) -> None:
+        """Main application loop"""
+        # Sidebar navigation
+        with st.sidebar:
+            st.title("🎬 FlickFinder AI")
+            st.markdown("---")
+            
+            # Navigation
+            pages = {
+                "🏠 Dashboard": "dashboard",
+                "📊 Results": "results",
+                "📂 ePortfolio": "eportfolio",
+                "🎬 Video Viewer": "video_viewer",
+                "⚖️ Compare Films": "compare",
+                "⚙️ Settings": "settings"
+            }
+            
+            # Ensure current_page exists in pages
+            if st.session_state.current_page not in pages:
+                st.session_state.current_page = "🏠 Dashboard"
+            
+            current_page = st.selectbox(
+                "Navigate",
+                list(pages.keys()),
+                index=list(pages.keys()).index(st.session_state.current_page),
+                key="nav_select"
+            )
+            
+            st.session_state.current_page = current_page
+            
+            # Quick stats
+            st.markdown("---")
+            st.markdown("### 📈 Quick Stats")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Films", st.session_state.analysis_count)
+            with col2:
+                if st.session_state.analysis_count > 0:
+                    history = self.persistence.get_all_history()
+                    scores = [h.get('overall_score', 0) for h in history]
+                    avg_score = np.mean(scores) if scores else 0
+                    st.metric("Avg", f"{avg_score:.1f}")
+            
+            # Footer
+            st.markdown("---")
+            st.markdown("""
+            <div style="text-align: center; color: #666;">
+                <small>FlickFinder AI v4.0<br>Cinemative Intelligence</small>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Main content area
+        try:
+            if st.session_state.current_page == "🏠 Dashboard":
+                if st.session_state.show_results_page and st.session_state.current_results_display:
+                    self.results_display.show_results(st.session_state.current_results_display)
+                else:
+                    self.dashboard.show_dashboard()
+            
+            elif st.session_state.current_page == "📊 Results":
+                if st.session_state.current_results_display:
+                    self.results_display.show_results(st.session_state.current_results_display)
+                else:
+                    st.info("No results to display. Please analyze a film first.")
+                    if st.button("← Back to Dashboard"):
+                        st.session_state.current_page = "🏠 Dashboard"
+                        st.rerun()
+            
+            elif st.session_state.current_page == "📂 ePortfolio":
+                self.eportfolio.show_portfolio()
+            
+            elif st.session_state.current_page == "🎬 Video Viewer":
+                self.video_viewer.show_video_viewer()
+            
+            elif st.session_state.current_page == "⚖️ Compare Films":
+                self.comparison_system.show_comparison()
+            
+            elif st.session_state.current_page == "⚙️ Settings":
+                self.settings_page.show_settings()
+            
+            else:
+                # Default to dashboard
+                self.dashboard.show_dashboard()
+                
+        except Exception as e:
+            st.error(f"Application error: {str(e)}")
+            st.info("Returning to dashboard...")
+            st.session_state.current_page = "🏠 Dashboard"
+            st.rerun()
+
+# --------------------------
+# RUN APPLICATION
+# --------------------------
 if __name__ == "__main__":
-    main()
+    app = FlickFinderAI()
+    app.run()
