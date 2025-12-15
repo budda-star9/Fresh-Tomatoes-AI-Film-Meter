@@ -37,6 +37,22 @@ from enum import Enum
 import warnings
 warnings.filterwarnings('ignore')
 
+
+# ---------- ADD THESE LINES RIGHT HERE ----------
+# Download required NLTK data for Streamlit Cloud
+import nltk
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+    nltk.data.find('sentiment/vader_lexicon')
+except LookupError:
+    nltk.download('punkt_tab')
+    nltk.download('vader_lexicon')
+# ---------- END OF ADDED LINES ----------
+
+# --------------------------
+# QUANTUM CONFIGURATION & SETUP
+# --------------------------
+# ... rest of your code below
 # --------------------------
 # QUANTUM CONFIGURATION & SETUP
 # --------------------------
